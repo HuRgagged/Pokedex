@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#E3350D">
+  <title>Mein Pokédex</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/favicon-32.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pokédex">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Pokéball-Symbol, wird überall wiederverwendet -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="ball" viewBox="0 0 32 32">
+      <path style="fill: var(--ball-oben)" d="M2 16a14 14 0 0 1 28 0h-8.6a5.4 5.4 0 0 0-10.8 0z"/>
+      <path style="fill: var(--ball-unten)" d="M2 16a14 14 0 0 0 28 0h-8.6a5.4 5.4 0 0 1-10.8 0z"/>
+      <circle style="stroke: var(--ball-rand)" cx="16" cy="16" r="14" fill="none" stroke-width="2.4"/>
+      <path style="stroke: var(--ball-rand)" d="M2 16h8.6M21.4 16H30" stroke-width="2.4"/>
+      <circle style="stroke: var(--ball-rand); fill: var(--ball-knopf)" cx="16" cy="16" r="3.6" stroke-width="2.4"/>
+    </symbol>
+  </svg>
+
+  <header class="kopf">
+    <div class="kopf-innen">
+      <h1><svg class="ball logo-ball" aria-hidden="true"><use href="#ball"/></svg>Pokédex</h1>
+      <div class="kopf-stand">
+        <span id="fortschritt-text"><b>0</b> von 1025 gefangen</span>
+        <div class="balken"><div id="fortschritt-balken" class="balken-fuellung"></div></div>
+      </div>
+      <span id="offline-hinweis" class="offline-hinweis" hidden title="Kein Internet – Häkchen werden trotzdem gespeichert">Offline</span>
+      <button id="thema-knopf" class="thema-knopf" type="button" data-thema="auto">
+        <svg class="i-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" class="voll"/></svg>
+        <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Ansicht 1: Pokédex -->
+    <section id="ansicht-dex" class="ansicht aktiv">
+      <div class="held">
+        <div class="held-ring" id="held-ring" role="img" aria-label="Fortschritt">
+          <span id="held-prozent">0 %</span>
+        </div>
+        <div class="held-text">
+          <h2><span id="held-zahl">0</span> von 1025 gefangen</h2>
+          <p id="held-fehlen">Noch 1025 Pokémon bis zum vollständigen National Dex.</p>
+          <div class="held-chips">
+            <button type="button" class="held-chip held-chip-haupt" data-booster-start>Booster öffnen</button>
+            <button type="button" class="held-chip" data-ansicht-sprung="trophaeen"><span id="held-trophaeen">0</span> Trophäen</button>
+            <button type="button" class="held-chip" data-ansicht-sprung="ranking">Bestes Set ansehen</button>
+          </div>
+        </div>
+      </div>
+      <div class="werkzeuge">
+        <div class="suche-zeile">
+          <input id="suche" type="search" placeholder="Pokémon oder Nummer suchen" autocomplete="off" aria-label="Suche">
+          <div class="segment" id="status-filter" role="group" aria-label="Anzeigen">
+            <button data-filter="alle" class="aktiv">Alle</button>
+            <button data-filter="fehlend">Fehlend</button>
+            <button data-filter="gesammelt">Gefangen</button>
+          </div>
+        </div>
+        <nav class="regionen" id="regionen" aria-label="Zu Region springen"></nav>
+      </div>
+      <div id="lade-hinweis" class="hinweis">Kartendaten werden von TCGdex geladen …</div>
+      <div id="dex-gitter"></div>
+      <p id="leer-hinweis" class="hinweis" hidden>Kein Pokémon passt zu deiner Suche.</p>
+    </section>
+
+    <!-- Ansicht 2: Set-Ranking -->
+    <section id="ansicht-ranking" class="ansicht">
+      <div class="ranking-kopf">
+        <h2>Welches Set lohnt sich?</h2>
+        <p>Je mehr Pokémon, die dir fehlen, als häufige Karten im Set stecken, desto weiter oben steht es.</p>
+        <div class="segment" id="set-filter" role="group" aria-label="Sets">
+          <button data-aktuell="1">Aktuelle Sets</button>
+          <button data-aktuell="0">Alle Sets</button>
+        </div>
+      </div>
+      <div id="ranking"></div>
+      <details class="erklaerung">
+        <summary>So wird gerechnet</summary>
+        <p>Jedes fehlende Pokémon zählt einmal pro Set – mit der Karte, die du am leichtesten ziehst:</p>
+        <ul class="gewicht-liste">
+          <li><span class="selt w1">Häufig, Ungewöhnlich</span> 1 Punkt</li>
+          <li><span class="selt w2">Selten</span> 0,5 Punkte</li>
+          <li><span class="selt w3">ex, V, Ultra Selten</span> 0,25 Punkte</li>
+          <li><span class="selt w4">Illustration, Secret, Hyper</span> 0,05 Punkte</li>
+        </ul>
+        <p>„Aktuelle Sets“ sind Sets der letzten zwei Jahre. Promo- und Energie-Sets zählen nicht.</p>
+      </details>
+    </section>
+
+    <!-- Ansicht 3: Trophäen -->
+    <section id="ansicht-trophaeen" class="ansicht">
+      <div class="ranking-kopf">
+        <h2>Trophäen</h2>
+        <p id="trophaeen-stand"></p>
+      </div>
+      <div id="trophaeen"></div>
+    </section>
+
+    <!-- Ansicht 4: Einstellungen, Backup & Daten -->
+    <section id="ansicht-backup" class="ansicht">
+      <div class="ranking-kopf">
+        <h2>Einstellungen</h2>
+      </div>
+      <div class="block">
+        <h2>Ansicht</h2>
+        <div class="einstellung">
+          <span>Kachelgröße</span>
+          <div class="segment" data-einstellung="kachel">
+            <button type="button" data-wert="klein">Klein</button>
+            <button type="button" data-wert="mittel">Mittel</button>
+            <button type="button" data-wert="gross">Groß</button>
+          </div>
+        </div>
+        <div class="einstellung">
+          <span>Fehlende Pokémon</span>
+          <div class="segment" data-einstellung="fehlend">
+            <button type="button" data-wert="silhouette">Silhouette</button>
+            <button type="button" data-wert="grau">Grau</button>
+            <button type="button" data-wert="farbig">Farbig</button>
+          </div>
+        </div>
+        <div class="einstellung">
+          <span>Sortieren nach</span>
+          <div class="segment" data-einstellung="sortierung">
+            <button type="button" data-wert="nummer">Nummer</button>
+            <button type="button" data-wert="name">Name</button>
+            <button type="button" data-wert="typ">Typ</button>
+          </div>
+        </div>
+        <div class="einstellung">
+          <span>Kartenwerte</span>
+          <div class="segment" data-einstellung="preise">
+            <button type="button" data-wert="an">Anzeigen</button>
+            <button type="button" data-wert="aus">Ausblenden</button>
+          </div>
+        </div>
+        <div class="einstellung">
+          <span>Darstellung</span>
+          <div class="segment" data-einstellung="thema">
+            <button type="button" data-wert="auto">Automatisch</button>
+            <button type="button" data-wert="light">Hell</button>
+            <button type="button" data-wert="dark">Dunkel</button>
+          </div>
+        </div>
+      </div>
+      <div class="block">
+        <h2>Zwischen Geräten übertragen</h2>
+        <p>Schick deine Liste per Link oder QR-Code auf ein anderes Gerät, z. B. vom PC aufs Handy. Auf dem anderen Gerät wählst du, ob die Liste ersetzt oder zusammengeführt wird.</p>
+        <div class="knopf-zeile">
+          <button type="button" id="sync-teilen" class="knopf">Link teilen</button>
+          <button type="button" id="sync-qr-knopf" class="knopf knopf-zwei">QR-Code zeigen</button>
+        </div>
+        <div id="sync-qr" class="sync-qr" hidden></div>
+        <p id="sync-meldung" class="meldung" role="status"></p>
+      </div>
+      <div class="block" id="installieren-block">
+        <h2>Als App installieren</h2>
+        <p id="installieren-text">Lege den Pokédex auf deinen Startbildschirm. Dann öffnet er sich wie eine App und funktioniert auch ohne Internet.</p>
+        <button type="button" id="installieren-knopf" class="knopf" hidden>Jetzt installieren</button>
+        <ul class="luecken" id="installieren-anleitung">
+          <li><b>iPhone (Safari):</b> Teilen-Symbol antippen, dann „Zum Home-Bildschirm“.</li>
+          <li><b>Android (Chrome):</b> Menü ⋮ antippen, dann „App installieren“ oder „Zum Startbildschirm hinzufügen“.</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h2>Backup</h2>
+        <p>Deine gefangenen Pokémon sind nur in diesem Browser gespeichert. Exportiere ab und zu ein Backup, bevor du Browserdaten löschst oder das Gerät wechselst.</p>
+        <div class="knopf-zeile">
+          <button id="export-knopf" class="knopf">Backup exportieren</button>
+          <label class="knopf knopf-zwei">
+            Backup importieren
+            <input id="import-datei" type="file" accept="application/json,.json" hidden>
+          </label>
+        </div>
+        <p id="backup-meldung" class="meldung" role="status"></p>
+      </div>
+      <div class="block">
+        <h2>Kartendaten</h2>
+        <p id="daten-status">–</p>
+        <button id="aktualisieren-knopf" class="knopf knopf-zwei">Kartendaten neu laden</button>
+      </div>
+      <div class="block">
+        <h2>Lücken in den Daten</h2>
+        <ul class="luecken">
+          <li>TCGdex fehlen einige alte deutsche Sets, zum Beispiel Grundset 2 und die Arena-Sets. Karten daraus tauchen hier nicht auf.</li>
+          <li>Für viele ältere Karten gibt es keinen deutschen Scan. Dann siehst du das englische Bild oder einen Platzhalter.</li>
+          <li>POP-, McDonald's- und Trainer-Kit-Karten haben keinen deutschen Setnamen. Sie werden angezeigt, zählen aber nicht im Ranking.</li>
+          <li>Karten aus TCG Pocket sind digital und deshalb ausgeblendet.</li>
+          <li>Kartenwerte sind Cardmarket-Trendpreise aus TCGdex. Cardmarket mischt dabei meist alle Sprachen, deutsche Karten können also etwas anders kosten.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <nav class="unten-nav" aria-label="Ansichten">
+    <button data-ansicht="dex" class="aktiv">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+      <span>Pokédex</span>
+    </button>
+    <button data-ansicht="ranking">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg>
+      <span>Set-Ranking</span>
+    </button>
+    <button data-ansicht="trophaeen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 13.8 7 22l5-3 5 3-1.5-8.2"/></svg>
+      <span>Trophäen</span>
+    </button>
+    <button data-ansicht="backup">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      <span>Einstellungen</span>
+    </button>
+  </nav>
+
+  <!-- Detailansicht eines Pokémon -->
+  <div id="detail" class="detail" hidden>
+    <div class="detail-hg" data-schliessen></div>
+    <article class="detail-blatt" role="dialog" aria-modal="true" aria-labelledby="detail-name">
+      <button class="detail-zu" data-schliessen aria-label="Schließen">✕</button>
+      <div id="detail-inhalt"></div>
+    </article>
+  </div>
+
+  <!-- Booster-Modus: ein Set öffnen und mit einem Tipp abhaken -->
+  <div id="booster" class="booster" hidden role="dialog" aria-modal="true" aria-labelledby="booster-titel">
+    <header class="booster-kopf">
+      <div class="booster-kopf-zeile">
+        <h2 id="booster-titel">Booster öffnen</h2>
+        <button type="button" class="knopf booster-fertig" data-booster-ende>Fertig</button>
+      </div>
+      <select id="booster-set" aria-label="Welches Set öffnest du?"></select>
+      <div class="booster-stand">
+        <span id="booster-session"></span>
+        <span id="booster-fehlen"></span>
+      </div>
+      <input id="booster-suche" type="search" placeholder="Im Set suchen" autocomplete="off" aria-label="Im Set suchen">
+    </header>
+    <p class="booster-tipp">Tippe auf ein Pokémon, sobald du es gezogen hast.</p>
+    <div id="booster-gitter" class="gitter booster-gitter"></div>
+  </div>
+
+  <!-- Session-Rückblick -->
+  <div id="rueckblick" class="schicht" hidden>
+    <div class="schicht-hg" data-rueckblick-zu></div>
+    <article class="schicht-karte rueckblick-karte" role="dialog" aria-modal="true" aria-labelledby="rueckblick-titel">
+      <div id="rueckblick-inhalt"></div>
+    </article>
+  </div>
+
+  <!-- Feier beim Region-Abschluss -->
+  <div id="feier" class="schicht feier" hidden>
+    <div class="schicht-hg" data-feier-zu></div>
+    <article class="schicht-karte feier-karte" role="dialog" aria-modal="true" aria-labelledby="feier-titel">
+      <div id="feier-inhalt"></div>
+    </article>
+  </div>
+  <canvas id="konfetti" class="konfetti" aria-hidden="true"></canvas>
+
+  <!-- Liste von einem anderen Gerät übernehmen -->
+  <div id="sync-dialog" class="schicht" hidden>
+    <div class="schicht-hg"></div>
+    <article class="schicht-karte" role="dialog" aria-modal="true" aria-labelledby="sync-titel">
+      <div id="sync-inhalt"></div>
+    </article>
+  </div>
+
+  <div id="meldungen" class="meldungen" aria-live="polite"></div>
+
+  <div id="bild-overlay" class="bild-overlay" hidden>
+    <img id="bild-gross" alt="">
+  </div>
+
+  <script src="data/pokemon-namen.js"></script>
+  <script src="data/pokemon-typen.js"></script>
+  <script src="data/pokemon-gruppen.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" defer></script>
+  <script src="app.js"></script>
+</body>
+</html>

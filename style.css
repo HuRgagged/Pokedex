@@ -1,0 +1,814 @@
+/* ==========================================================================
+   Mein Pokédex – Design
+   Regel fürs Tempo: keine Dauer-Transforms, Filter-Animationen oder
+   backdrop-filter auf allen Kacheln – nur auf einzelnen Elementen.
+   ========================================================================== */
+
+/* ========== Farben & Schrift ========== */
+:root {
+  --rot: #E3350D;          /* Pokédex-Rot */
+  --rot-tief: #A8240A;
+  --gold: #FFCB05;         /* Pokémon-Gelb */
+  --nacht: #121A2E;        /* Text */
+  --schirm: #F2F4F8;       /* Hintergrund */
+  --flaeche: #FFFFFF;
+  --flaeche-2: #F6F8FB;    /* leicht abgesetzte Fläche */
+  --leise: #62708A;
+  --linie: #E2E7EF;
+  --glas: rgba(255,255,255,.72);
+  --glas-rand: rgba(255,255,255,.6);
+  --silhouette: brightness(0) opacity(.13);
+  --schatten-klein: 0 1px 2px rgba(18,26,46,.06), 0 2px 8px rgba(18,26,46,.05);
+  --schatten: 0 1px 2px rgba(18,26,46,.05), 0 8px 24px rgba(18,26,46,.08);
+  --schatten-gross: 0 2px 6px rgba(18,26,46,.08), 0 24px 48px rgba(18,26,46,.16);
+  --leuchten-1: rgba(227,53,13,.10);
+  --leuchten-2: rgba(99,144,240,.10);
+
+  --schrift-titel: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --schrift: "Figtree", system-ui, sans-serif;
+  --kopf-hoehe: 60px;
+  --nav-hoehe: 64px;
+  --radius-gross: 28px;
+  --radius: 20px;
+  --radius-klein: 12px;
+}
+
+/* Dunkel: automatisch nach Gerät, oder per Schalter (data-theme) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --nacht: #EEF2FA; --schirm: #0A0F1E; --flaeche: #141B31; --flaeche-2: #1A2240;
+    --leise: #97A2BB; --linie: #253050;
+    --glas: rgba(14,20,38,.72); --glas-rand: rgba(255,255,255,.08);
+    --silhouette: brightness(0) invert(1) opacity(.10);
+    --schatten-klein: 0 1px 2px rgba(0,0,0,.4);
+    --schatten: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.35);
+    --schatten-gross: 0 2px 6px rgba(0,0,0,.4), 0 28px 56px rgba(0,0,0,.55);
+    --leuchten-1: rgba(227,53,13,.16); --leuchten-2: rgba(99,144,240,.12);
+  }
+}
+:root[data-theme="dark"] {
+  --nacht: #EEF2FA; --schirm: #0A0F1E; --flaeche: #141B31; --flaeche-2: #1A2240;
+  --leise: #97A2BB; --linie: #253050;
+  --glas: rgba(14,20,38,.72); --glas-rand: rgba(255,255,255,.08);
+  --silhouette: brightness(0) invert(1) opacity(.10);
+  --schatten-klein: 0 1px 2px rgba(0,0,0,.4);
+  --schatten: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.35);
+  --schatten-gross: 0 2px 6px rgba(0,0,0,.4), 0 28px 56px rgba(0,0,0,.55);
+  --leuchten-1: rgba(227,53,13,.16); --leuchten-2: rgba(99,144,240,.12);
+  color-scheme: dark;
+}
+
+/* Typfarben (wie in den Spielen) */
+.t-normal { --typ: #A8A77A; } .t-fire { --typ: #EE8130; } .t-water { --typ: #6390F0; }
+.t-electric { --typ: #F7D02C; } .t-grass { --typ: #7AC74C; } .t-ice { --typ: #96D9D6; }
+.t-fighting { --typ: #C22E28; } .t-poison { --typ: #A33EA1; } .t-ground { --typ: #E2BF65; }
+.t-flying { --typ: #A98FF3; } .t-psychic { --typ: #F95587; } .t-bug { --typ: #A6B91A; }
+.t-rock { --typ: #B6A136; } .t-ghost { --typ: #735797; } .t-dragon { --typ: #6F35FC; }
+.t-dark { --typ: #705746; } .t-steel { --typ: #B7B7CE; } .t-fairy { --typ: #D685AD; }
+
+/* ========== Grundlagen ========== */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: var(--schrift);
+  font-size: 16px;
+  line-height: 1.45;
+  background: var(--schirm);
+  color: var(--nacht);
+  padding-bottom: calc(var(--nav-hoehe) + env(safe-area-inset-bottom) + 24px);
+  -webkit-font-smoothing: antialiased;
+}
+/* weiches Farblicht im Hintergrund – eine feste Ebene, wird nur einmal gezeichnet */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(60vmax 60vmax at -10% -10%, var(--leuchten-1), transparent 60%),
+    radial-gradient(50vmax 50vmax at 110% 20%, var(--leuchten-2), transparent 60%);
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 8px; }
+h1, h2, h3 { font-family: var(--schrift-titel); font-weight: 800; margin: 0; letter-spacing: -.02em; }
+
+/* ========== Kopfleiste (Glas) ========== */
+.kopf {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--glas);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border-bottom: 1px solid var(--linie);
+}
+.kopf-innen {
+  max-width: 1120px; margin: 0 auto; height: var(--kopf-hoehe);
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 16px;
+}
+.kopf h1 { font-size: 1.35rem; display: flex; align-items: center; gap: 8px; line-height: 1; }
+.kopf .logo-ball {
+  width: 28px; height: 28px; flex: none; opacity: 1;
+  --ball-oben: var(--rot); --ball-unten: #fff; --ball-rand: #121A2E; --ball-knopf: #fff;
+}
+.kopf-stand { margin-left: auto; width: min(200px, 34vw); font-size: .8rem; color: var(--leise); text-align: right; white-space: nowrap; }
+.kopf-stand b { color: var(--nacht); font-family: var(--schrift-titel); font-weight: 800; font-size: 1rem; }
+.balken { height: 6px; background: var(--linie); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.balken-fuellung { height: 100%; width: 0; background: linear-gradient(90deg, var(--rot), #FF7A3D); border-radius: 3px; transition: width .4s ease; }
+
+.thema-knopf {
+  flex: none; width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--linie); background: var(--flaeche); color: var(--nacht);
+  display: grid; place-items: center; padding: 0; box-shadow: var(--schatten-klein);
+}
+.thema-knopf svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; display: none; }
+.thema-knopf .voll, .thema-knopf .i-dark { fill: currentColor; }
+.thema-knopf[data-thema="auto"] .i-auto,
+.thema-knopf[data-thema="light"] .i-light,
+.thema-knopf[data-thema="dark"] .i-dark { display: block; }
+
+main { max-width: 1120px; margin: 0 auto; }
+.ansicht { display: none; }
+.ansicht.aktiv { display: block; }
+
+/* ========== Startbereich: der eine laute Moment ========== */
+.held {
+  margin: 16px 16px 4px;
+  border-radius: var(--radius-gross);
+  padding: 22px;
+  display: flex; align-items: center; gap: 20px;
+  color: #fff;
+  background:
+    radial-gradient(120% 140% at 100% 0%, #FF6A3D 0%, transparent 55%),
+    linear-gradient(135deg, #E3350D, #B9200A);
+  box-shadow: 0 2px 6px rgba(185,32,10,.25), 0 20px 40px rgba(185,32,10,.25);
+  position: relative; overflow: hidden;
+}
+.held::after {   /* großer Pokéball als Linienzeichnung */
+  content: ""; position: absolute; right: -80px; bottom: -110px; width: 300px; height: 300px;
+  border-radius: 50%; border: 22px solid rgba(255,255,255,.10);
+  background:
+    radial-gradient(circle, rgba(255,255,255,.10) 0 30px, transparent 31px 52px, rgba(255,255,255,.10) 53px 0) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+.held-ring {
+  --p: 0;
+  flex: none; width: 108px; height: 108px; border-radius: 50%;
+  display: grid; place-items: center; position: relative; z-index: 1;
+  background:
+    radial-gradient(closest-side, #C4250B 76%, transparent 77% 100%),
+    conic-gradient(var(--gold) calc(var(--p) * 1%), rgba(255,255,255,.22) 0);
+  transition: background .4s;
+}
+.held-ring span { font-family: var(--schrift-titel); font-weight: 800; font-size: 1.5rem; letter-spacing: -.03em; }
+.held-text { position: relative; z-index: 1; min-width: 0; }
+.held-text h2 { font-size: clamp(1.35rem, 4.5vw, 2rem); line-height: 1.1; }
+.held-text p { margin: 6px 0 14px; opacity: .88; font-size: .95rem; }
+.held-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.held-chip {
+  border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.14); color: #fff;
+  border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: .85rem;
+}
+.held-chip:hover { background: rgba(255,255,255,.24); }
+
+/* ========== Werkzeuge (Suche, Filter, Regionen) ========== */
+.werkzeuge {
+  position: sticky; top: var(--kopf-hoehe); z-index: 20;
+  padding: 12px 16px 10px;
+  background: linear-gradient(var(--schirm) 70%, transparent);
+}
+.suche-zeile { display: flex; gap: 8px; flex-wrap: wrap; }
+#suche {
+  flex: 1 1 220px; min-width: 0;
+  padding: 12px 16px 12px 44px;
+  border: 1px solid var(--linie); border-radius: 999px;
+  background: var(--flaeche) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2362708A' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E") no-repeat 16px center / 18px;
+  box-shadow: var(--schatten-klein);
+  font-size: 16px;
+  transition: box-shadow .2s, border-color .2s;
+}
+#suche:focus { border-color: var(--rot); outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--rot) 18%, transparent); }
+
+.segment {
+  display: inline-flex; padding: 4px; gap: 2px;
+  background: var(--flaeche); border: 1px solid var(--linie); border-radius: 999px;
+  box-shadow: var(--schatten-klein);
+}
+.segment button {
+  border: none; background: none; border-radius: 999px;
+  padding: 7px 14px; font-weight: 600; font-size: .88rem; color: var(--leise);
+  transition: background .2s, color .2s;
+}
+.segment button.aktiv { background: var(--nacht); color: var(--schirm); }
+
+.regionen {
+  display: flex; gap: 6px; overflow-x: auto; margin: 10px -16px 0; padding: 2px 16px 4px;
+  scrollbar-width: none;
+}
+.regionen::-webkit-scrollbar { display: none; }
+.regionen button {
+  flex: none; border: 1px solid var(--linie); background: var(--flaeche);
+  border-radius: 999px; padding: 6px 12px; font-size: .84rem; font-weight: 600;
+  box-shadow: var(--schatten-klein);
+}
+.regionen button:hover { border-color: var(--leise); }
+.regionen button span { color: var(--leise); font-weight: 500; margin-left: 5px; font-variant-numeric: tabular-nums; }
+
+.hinweis { padding: 32px 16px; text-align: center; color: var(--leise); }
+.hinweis.fehler { color: var(--rot); }
+
+/* ========== Pokéball-Symbol ========== */
+.ball-box { display: block; width: 100%; height: 100%; }
+.ball {
+  width: 100%; height: 100%; display: block;
+  --ball-oben: transparent; --ball-unten: transparent;
+  --ball-rand: var(--leise); --ball-knopf: var(--flaeche);
+  opacity: .45;
+}
+.an .ball {
+  --ball-oben: var(--rot); --ball-unten: #fff;
+  --ball-rand: #121A2E; --ball-knopf: #fff;
+  opacity: 1;
+}
+
+/* ========== Regionen & Kacheln ========== */
+.region {
+  padding: 10px 16px 24px; scroll-margin-top: 180px;
+  /* Regionen außerhalb des Bildschirms werden nicht gezeichnet – spart viel Arbeit */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2400px;
+}
+.region-kopf {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 0 14px;
+}
+.region-kopf h2 { font-size: 1.5rem; }
+.region-kopf .region-zahl {
+  font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  padding: 3px 10px; border-radius: 999px; background: var(--flaeche); border: 1px solid var(--linie); color: var(--leise);
+}
+.region-kopf .region-balken { flex: 1; height: 4px; background: var(--linie); border-radius: 2px; overflow: hidden; }
+.region-kopf .region-balken i { display: block; height: 100%; background: linear-gradient(90deg, var(--rot), #FF7A3D); border-radius: 2px; }
+.region.komplett .region-balken i { background: var(--gold); }
+.region.komplett .region-zahl { background: var(--gold); color: #121A2E; border-color: var(--gold); }
+
+.gitter {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(106px, 1fr));
+}
+
+/* Kachel: ruhige Karte; gefangen = farbiges Licht in der Typfarbe hinter dem Artwork */
+.kachel {
+  --dx: 0; --dy: 0;
+  position: relative;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  padding: 8px 8px 10px;
+  text-align: left;
+  box-shadow: var(--schatten-klein);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.kachel.an {
+  border-color: color-mix(in srgb, var(--typ) 35%, var(--linie));
+  background:
+    radial-gradient(75% 60% at 50% 38%, color-mix(in srgb, var(--typ) 42%, transparent), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--typ) 10%, var(--flaeche)), var(--flaeche) 85%);
+}
+.kachel-oeffnen {
+  display: block; width: 100%; border: none; background: none; padding: 0; text-align: left;
+}
+.kachel img {
+  display: block; width: 100%; aspect-ratio: 1; object-fit: contain;
+  filter: var(--silhouette);
+  transition: filter .45s ease, transform .25s ease;
+}
+.kachel.an img { filter: none; }
+.kachel:active { transform: scale(.97); }
+
+/* 3D nur auf der Kachel unter der Maus (Tempo!) */
+@media (hover: hover) and (pointer: fine) {
+  .kachel:hover {
+    z-index: 3;
+    transform-style: preserve-3d;
+    transform: perspective(700px) rotateX(calc(var(--dy) * -14deg)) rotateY(calc(var(--dx) * 16deg)) scale(1.08);
+    box-shadow: var(--schatten-gross);
+  }
+  .kachel:hover::after {   /* Glanz, der der Maus folgt */
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(circle at calc(50% + var(--dx) * 100%) calc(50% + var(--dy) * 100%), rgba(255,255,255,.35), transparent 55%);
+  }
+  .kachel:hover .kachel-oeffnen { transform-style: preserve-3d; }
+  .kachel:hover img { transform: translateZ(36px) scale(1.06); }
+  .kachel.an:hover img { filter: drop-shadow(0 10px 10px rgba(0,0,0,.25)); }
+  .kachel:hover .kachel-fang { transform: translateZ(24px); }
+}
+.kachel-nr { display: block; margin-top: 4px; font-size: .72rem; color: var(--leise); font-variant-numeric: tabular-nums; font-weight: 600; }
+.kachel-name { display: block; font-weight: 700; font-size: .92rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kachel-fang {
+  position: absolute; top: 4px; right: 4px;
+  width: 40px; height: 40px; padding: 8px;
+  border: none; background: none; border-radius: 50%;
+}
+.kachel-fang:active { transform: scale(.88); }
+.fang-animation .ball { animation: wackeln .5s ease; }
+@keyframes wackeln {
+  0% { transform: rotate(0) scale(1); }
+  25% { transform: rotate(-18deg) scale(1.2); }
+  50% { transform: rotate(14deg) scale(1.2); }
+  75% { transform: rotate(-6deg); }
+  100% { transform: rotate(0) scale(1); }
+}
+
+/* ========== Detailansicht (Bottom Sheet) ========== */
+.detail { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
+.detail[hidden] { display: none; }
+.detail-hg { position: absolute; inset: 0; background: rgba(6,10,22,.5); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.detail-blatt {
+  position: relative; width: 100%; max-width: 760px; max-height: 92vh; overflow-y: auto;
+  background: var(--schirm);
+  border-radius: var(--radius-gross) var(--radius-gross) 0 0;
+  box-shadow: var(--schatten-gross);
+  animation: hoch .3s cubic-bezier(.2, .9, .3, 1);
+  overscroll-behavior: contain;
+}
+.detail-blatt::before {   /* Griff zum Erkennen als Blatt */
+  content: ""; position: absolute; top: 8px; left: 50%; width: 40px; height: 5px; margin-left: -20px;
+  border-radius: 3px; background: rgba(255,255,255,.6); z-index: 2;
+}
+@keyframes hoch { from { transform: translateY(60px); opacity: 0; } }
+.detail-zu {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4);
+  background: rgba(255,255,255,.25); color: #fff; font-size: 1rem;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.detail-kopf {
+  color: #fff;
+  padding: 28px 24px 22px;
+  display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: end;
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(70% 90% at 85% 40%, rgba(255,255,255,.35), transparent 60%),
+    linear-gradient(135deg, var(--typ), color-mix(in srgb, var(--typ) 65%, #000));
+}
+.detail-kopf::before {    /* großer Pokéball als Wasserzeichen */
+  content: ""; position: absolute; right: -50px; top: -30px; width: 280px; height: 280px;
+  border-radius: 50%; border: 26px solid rgba(255,255,255,.12);
+  background: linear-gradient(transparent 46%, rgba(255,255,255,.12) 46% 54%, transparent 54%);
+}
+.detail-kopf img {
+  grid-row: 1 / span 3; grid-column: 2; width: 160px; height: 160px; object-fit: contain;
+  position: relative; filter: drop-shadow(0 12px 16px rgba(0,0,0,.3));
+}
+.detail-kopf .nr { font-weight: 700; opacity: .85; position: relative; font-variant-numeric: tabular-nums; }
+.detail-kopf h2 { font-size: clamp(1.8rem, 7vw, 2.6rem); line-height: 1; position: relative; }
+.typen { display: flex; gap: 6px; position: relative; }
+.typ {
+  font-size: .8rem; font-weight: 700; padding: 4px 12px; border-radius: 999px;
+  background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.3); color: #fff;
+}
+.detail-fang {
+  margin: 18px 20px 4px; width: calc(100% - 40px);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 15px; border-radius: 999px; border: 1px solid var(--linie);
+  background: var(--flaeche); font-weight: 700; font-size: 1.05rem;
+  box-shadow: var(--schatten);
+}
+.detail-fang .ball-box { width: 28px; height: 28px; }
+.detail-fang.an { background: var(--nacht); color: var(--schirm); border-color: var(--nacht); }
+.detail-abschnitt { padding: 18px 20px 32px; }
+.detail-abschnitt h3 { font-size: 1.2rem; margin-bottom: 4px; }
+.detail-abschnitt > p { margin: 0 0 14px; color: var(--leise); font-size: .9rem; }
+
+.karten-gitter { display: grid; gap: 16px 12px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.karte { font-size: .85rem; }
+.karte-bild {
+  display: block; width: 100%; aspect-ratio: 245 / 342; border-radius: 4.5% / 3.2%;
+  background: var(--linie); object-fit: cover; border: none; padding: 0;
+  box-shadow: var(--schatten);
+  transition: transform .2s, box-shadow .2s;
+}
+button.karte-bild { cursor: zoom-in; overflow: hidden; }
+@media (hover: hover) { button.karte-bild:hover { transform: translateY(-4px); box-shadow: var(--schatten-gross); } }
+button.karte-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.karte-leer { display: grid; place-items: center; color: var(--leise); font-size: .8rem; text-align: center; padding: 8px; }
+.karte-serie { display: block; font-size: .72rem; color: var(--leise); margin-top: 8px; }
+.karte-set { display: block; font-weight: 700; line-height: 1.25; }
+.karte-meta { display: block; color: var(--leise); margin: 2px 0 6px; }
+.karte-en { display: block; margin-top: 3px; font-size: .72rem; color: var(--leise); }
+
+/* Seltenheit nach Ziehchance */
+.selt { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .74rem; font-weight: 700; background: var(--linie); color: var(--nacht); }
+.selt.w1 { background: #D6F3E0; color: #15603A; }
+.selt.w2 { background: #FFF0B8; color: #745200; }
+.selt.w3 { background: #E8E0FC; color: #4E2F98; }
+.selt.w4 { background: #FCDDE7; color: #8C1D46; }
+
+/* ========== Set-Ranking ========== */
+.ranking-kopf { padding: 22px 16px 8px; }
+.ranking-kopf h2 { font-size: clamp(1.6rem, 5vw, 2.2rem); line-height: 1.1; }
+.ranking-kopf p { margin: 6px 0 14px; color: var(--leise); max-width: 60ch; }
+#ranking { padding: 8px 16px; }
+
+.sieger {
+  color: #fff;
+  border-radius: var(--radius-gross); padding: 24px; margin-bottom: 18px;
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgba(255,203,5,.22), transparent 55%),
+    linear-gradient(140deg, #1B2747, #0F1630);
+  box-shadow: var(--schatten-gross);
+}
+.sieger::before {   /* Pokéball-Wasserzeichen */
+  content: ""; position: absolute; right: -70px; top: -70px; width: 260px; height: 260px;
+  border-radius: 50%; border: 28px solid rgba(255,203,5,.08);
+  background: linear-gradient(transparent 45%, rgba(255,203,5,.08) 45% 55%, transparent 55%);
+  pointer-events: none;
+}
+.sieger > * { position: relative; }
+.sieger-titel {
+  display: inline-block; color: #121A2E; background: var(--gold);
+  font-weight: 700; font-size: .82rem; margin: 0 0 14px; padding: 4px 12px; border-radius: 999px;
+}
+.sieger-logo { display: block; max-width: 260px; width: 70%; height: 96px; object-fit: contain; object-position: left center; margin-bottom: 10px; }
+.sieger h3 { font-size: 1.6rem; line-height: 1.1; }
+.sieger-zahlen { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 28px; margin: 18px 0; }
+.sieger-zahlen div { line-height: 1.2; }
+.sieger-zahlen b { display: block; font-family: var(--schrift-titel); font-weight: 800; font-size: 1.9rem; color: var(--gold); letter-spacing: -.03em; }
+.sieger-zahlen span { font-size: .82rem; opacity: .75; }
+.mini-reihe { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.mini-reihe img {
+  width: 46px; height: 46px; object-fit: contain; border-radius: 50%;
+  background: rgba(255,255,255,.07);
+}
+.mini-reihe .mehr { align-self: center; font-weight: 700; padding-left: 6px; opacity: .8; }
+.sieger .knopf { margin-top: 18px; background: var(--gold); color: #121A2E; }
+
+.rang-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.rang {
+  background: var(--flaeche); border: 1px solid var(--linie);
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--schatten-klein);
+  transition: box-shadow .2s;
+}
+@media (hover: hover) { .rang:hover { box-shadow: var(--schatten); } }
+.rang-zeile {
+  width: 100%; border: none; background: none; text-align: left;
+  display: grid; grid-template-columns: 24px 64px 1fr auto; gap: 6px 12px; align-items: center;
+  padding: 14px 16px;
+}
+.rang-platz { font-family: var(--schrift-titel); font-weight: 800; color: var(--leise); text-align: center; font-size: 1.05rem; }
+.rang-logo { width: 64px; height: 34px; object-fit: contain; }
+@media (min-width: 720px) {
+  .rang-zeile { grid-template-columns: 30px 100px 1fr auto; gap: 6px 16px; }
+  .rang-logo { width: 100px; height: 44px; }
+}
+.rang-name b { display: block; line-height: 1.2; }
+.rang-name small { color: var(--leise); font-size: .82rem; }
+.rang-punkte { text-align: right; line-height: 1.05; }
+.rang-punkte b { font-family: var(--schrift-titel); font-weight: 800; font-size: 1.35rem; color: var(--rot); display: block; letter-spacing: -.02em; }
+.rang-punkte small { color: var(--leise); font-size: .74rem; }
+.rang-balken { grid-column: 3 / 5; height: 4px; background: var(--linie); border-radius: 2px; overflow: hidden; }
+.rang-balken i { display: block; height: 100%; background: linear-gradient(90deg, var(--rot), #FF7A3D); border-radius: 2px; }
+.rang-details { padding: 4px 16px 18px; }
+.rang-details p { margin: 0 0 12px; font-size: .88rem; color: var(--leise); }
+.sieger .rang-details { padding: 18px 0 0; }
+.sieger .rang-details p { color: rgba(255,255,255,.75); }
+.rang-details .gitter { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.rang-details .kachel { background: var(--flaeche-2); color: var(--nacht); }
+.rang-details .kachel img { filter: none; }   /* hier sollst du erkennen, wonach du suchst */
+.rang-details .kachel.an img { opacity: .5; }
+
+.erklaerung {
+  margin: 20px 16px; background: var(--flaeche); border: 1px solid var(--linie);
+  border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--schatten-klein);
+}
+.erklaerung summary { font-weight: 700; cursor: pointer; }
+.erklaerung p { color: var(--leise); font-size: .9rem; margin: 10px 0; }
+.gewicht-liste { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; font-size: .9rem; }
+
+/* Serie über dem Booster-Namen */
+.serie-name { display: block; font-size: .74rem; font-weight: 600; color: var(--leise); line-height: 1.2; }
+.sieger .serie-name { color: var(--gold); opacity: .85; font-size: .85rem; margin-bottom: 2px; }
+
+/* Schriftzug, wenn TCGdex kein Logo hat */
+.logo-ersatz {
+  display: grid; place-items: center; text-align: center;
+  font-family: var(--schrift-titel); font-weight: 800; line-height: 1.05; color: var(--rot);
+  font-size: .72rem; padding: 2px; border-radius: 10px;
+  background: color-mix(in srgb, var(--rot) 10%, transparent);
+}
+.sieger-logo.logo-ersatz {
+  display: block; height: auto; width: auto; max-width: none; text-align: left;
+  font-size: 2.4rem; color: var(--gold); background: none; padding: 0; letter-spacing: -.03em;
+}
+
+/* ========== Trophäen ========== */
+#trophaeen { padding: 0 16px 24px; }
+.trophaeen-gruppe { margin-bottom: 26px; }
+.trophaeen-gruppe h3 { font-size: 1.25rem; margin: 6px 0 12px; }
+.trophaeen-gitter { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); }
+.trophaee {
+  background: var(--flaeche); border: 1px solid var(--linie);
+  border-radius: var(--radius); padding: 18px 14px 14px;
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px;
+  box-shadow: var(--schatten-klein);
+}
+.trophaee.erreicht {
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--linie));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 12%, var(--flaeche)), var(--flaeche) 60%);
+}
+.trophaee b { margin-top: 10px; line-height: 1.2; }
+.trophaee small { color: var(--leise); font-size: .78rem; line-height: 1.3; min-height: 2.6em; }
+.trophaee-balken { width: 100%; height: 6px; background: var(--linie); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+.trophaee-balken i { display: block; height: 100%; background: linear-gradient(90deg, var(--rot), #FF7A3D); border-radius: 3px; }
+.trophaee-stand { font-size: .78rem; font-weight: 700; color: var(--leise); margin-top: 5px; font-variant-numeric: tabular-nums; }
+.trophaee.erreicht .trophaee-balken i { background: var(--gold); }
+.trophaee.erreicht .trophaee-stand { color: var(--nacht); }
+
+.medaille {
+  --ring: var(--gold);
+  width: 88px; height: 88px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; position: relative;
+  background: var(--flaeche-2);
+  border: 4px solid var(--linie);
+}
+.medaille[data-gruppe="Regionen"] { --ring: var(--rot); }
+.medaille[data-gruppe="Besondere Gruppen"] { --ring: #7B5CD6; }
+.medaille[data-gruppe="Typen"] { --ring: var(--typ); }
+.medaille img { width: 66px; height: 66px; object-fit: contain; filter: var(--silhouette); }
+.erreicht .medaille, .meldung-trophaee .medaille {
+  border-color: var(--ring);
+  background: radial-gradient(circle at 35% 30%, #fff, color-mix(in srgb, var(--ring) 35%, #fff));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 22%, transparent), 0 8px 20px color-mix(in srgb, var(--ring) 40%, transparent);
+  overflow: hidden;
+}
+.erreicht .medaille img, .meldung-trophaee .medaille img { filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); }
+.erreicht .medaille::after {   /* Glanzstreifen beim Überfahren */
+  content: ""; position: absolute; inset: -20%;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.7) 50%, transparent 60%);
+  transform: translateX(-100%);
+}
+@media (hover: hover) {
+  .trophaee.erreicht:hover .medaille::after { transform: translateX(100%); transition: transform .7s ease; }
+}
+
+/* ========== Backup ========== */
+.block {
+  background: var(--flaeche); border: 1px solid var(--linie);
+  margin: 16px; padding: 20px; border-radius: var(--radius); max-width: 660px;
+  box-shadow: var(--schatten-klein);
+}
+.block h2 { font-size: 1.3rem; margin-bottom: 8px; }
+.block p { margin: 0 0 14px; color: var(--leise); }
+.knopf-zeile { display: flex; gap: 8px; flex-wrap: wrap; }
+.knopf {
+  display: inline-block; border: none; border-radius: 999px; padding: 12px 20px;
+  background: var(--rot); color: #fff; font-weight: 700;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--rot) 35%, transparent);
+  transition: transform .15s;
+}
+.knopf:active { transform: scale(.97); }
+.knopf-zwei { background: var(--flaeche-2); color: var(--nacht); border: 1px solid var(--linie); box-shadow: none; cursor: pointer; }
+.meldung { margin-top: 12px !important; font-weight: 600; color: var(--nacht) !important; }
+.luecken { margin: 0; padding-left: 20px; color: var(--leise); font-size: .92rem; display: grid; gap: 6px; }
+
+/* ========== Navigation unten: schwebende Glas-Pille ========== */
+.unten-nav {
+  position: fixed; z-index: 40;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  width: min(480px, calc(100% - 24px));
+  display: flex; padding: 6px; gap: 4px;
+  background: var(--glas);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid var(--glas-rand);
+  border-radius: 999px;
+  box-shadow: var(--schatten-gross);
+}
+.unten-nav button {
+  flex: 1; height: calc(var(--nav-hoehe) - 12px); border: none; background: none; border-radius: 999px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  color: var(--leise); font-size: .7rem; font-weight: 700;
+  transition: background .2s, color .2s;
+}
+.unten-nav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.unten-nav button.aktiv { color: #fff; background: var(--rot); box-shadow: 0 4px 12px color-mix(in srgb, var(--rot) 40%, transparent); }
+
+/* ========== Großes Kartenbild ========== */
+.bild-overlay {
+  position: fixed; inset: 0; z-index: 80; background: rgba(6,10,22,.88);
+  display: grid; place-items: center; padding: 16px; cursor: zoom-out;
+}
+.bild-overlay[hidden] { display: none; }
+.bild-overlay img { max-width: 100%; max-height: 90vh; border-radius: 4.5% / 3.2%; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+
+/* ========== Meldungen (Fangen, Trophäe, Darstellung) ========== */
+.meldungen {
+  position: fixed; left: 0; right: 0; z-index: 90;
+  bottom: calc(var(--nav-hoehe) + env(safe-area-inset-bottom) + 22px);
+  display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+  padding: 0 12px;
+}
+.meldung-trophaee, .fang-meldung {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 12px;
+  background: #121A2E; color: #fff; border-radius: 999px; padding: 6px 20px 6px 6px;
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 16px 40px rgba(0,0,0,.35);
+  animation: meldung-rein .45s cubic-bezier(.2, 1.4, .4, 1);
+  transition: opacity .4s, transform .4s;
+}
+.meldung-trophaee.weg, .fang-meldung.weg { opacity: 0; transform: translateY(20px); }
+.meldung-kurz { padding: 10px 20px; font-weight: 600; }
+.meldung-trophaee .medaille { width: 52px; height: 52px; border-width: 3px; }
+.meldung-trophaee .medaille img { width: 40px; height: 40px; }
+.meldung-trophaee small { display: block; color: var(--gold); font-weight: 600; font-size: .78rem; }
+.meldung-trophaee b { font-family: var(--schrift-titel); font-weight: 800; font-size: 1.05rem; }
+@keyframes meldung-rein { from { opacity: 0; transform: translateY(30px) scale(.9); } }
+
+/* Fang-Meldung: Artwork im Typ-Licht, Name, Rückgängig */
+.fang-meldung { padding: 6px 6px 6px 6px; width: min(420px, 100%); }
+.fang-meldung img {
+  width: 52px; height: 52px; flex: none; object-fit: contain; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--typ) 70%, transparent), color-mix(in srgb, var(--typ) 25%, transparent));
+}
+.fang-text { flex: 1; min-width: 0; line-height: 1.2; }
+.fang-text b { display: block; font-family: var(--schrift-titel); font-weight: 800; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fang-text small { color: rgba(255,255,255,.7); font-size: .8rem; }
+.fang-zurueck {
+  flex: none; border: none; border-radius: 999px; padding: 11px 16px;
+  background: rgba(255,255,255,.12); color: var(--gold); font-weight: 700; font-size: .88rem;
+}
+.fang-zurueck:hover { background: rgba(255,255,255,.2); }
+
+/* ========== Einstellungen „Ansicht“ ========== */
+.einstellung {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+  padding: 12px 0; border-top: 1px solid var(--linie);
+}
+.einstellung:first-of-type { border-top: none; padding-top: 4px; }
+.einstellung > span { font-weight: 600; }
+.einstellung .segment button { padding: 7px 12px; }
+
+/* Kachelgröße */
+:root { --kachel-min: 106px; }
+:root[data-kachel="klein"] { --kachel-min: 84px; }
+:root[data-kachel="gross"] { --kachel-min: 148px; }
+#dex-gitter .gitter { grid-template-columns: repeat(auto-fill, minmax(var(--kachel-min), 1fr)); }
+:root[data-kachel="klein"] #dex-gitter .gitter { gap: 8px; }
+:root[data-kachel="klein"] #dex-gitter .kachel-name { font-size: .8rem; }
+:root[data-kachel="klein"] #dex-gitter .kachel-fang { width: 34px; height: 34px; padding: 7px; top: 2px; right: 2px; }
+
+/* Fehlende Pokémon: Silhouette (Standard), grau oder farbig */
+:root[data-fehlend="grau"] #dex-gitter .kachel { --silhouette: grayscale(1) opacity(.45); }
+:root[data-fehlend="farbig"] #dex-gitter .kachel { --silhouette: none; }
+
+/* ========== Kartenwert ========== */
+.karte-preis {
+  display: inline-block; margin: 6px 0 0 4px; padding: 2px 9px; border-radius: 999px;
+  font-size: .74rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--flaeche-2); border: 1px solid var(--linie); color: var(--nacht);
+}
+.karte-preis.wertvoll {
+  background: linear-gradient(135deg, #FFE27A, var(--gold)); border-color: #E0B100; color: #4A3700;
+}
+.preis-hinweis { margin: 18px 0 0; font-size: .78rem; color: var(--leise); }
+
+/* ========== Booster-Modus ========== */
+.booster {
+  position: fixed; inset: 0; z-index: 55; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--schirm);
+  padding-bottom: 120px;
+  animation: hoch .3s cubic-bezier(.2, .9, .3, 1);
+}
+.booster[hidden] { display: none; }
+.booster-kopf {
+  position: sticky; top: 0; z-index: 2;
+  padding: 14px 16px 12px;
+  background: var(--glas);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border-bottom: 1px solid var(--linie);
+  display: grid; gap: 10px;
+}
+.booster-kopf-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.booster-kopf h2 { font-size: 1.4rem; }
+.booster-fertig { padding: 10px 22px; }
+#booster-set {
+  width: 100%; padding: 12px 14px; border-radius: var(--radius-klein);
+  border: 1px solid var(--linie); background: var(--flaeche); font-weight: 700; font-size: 1rem;
+  box-shadow: var(--schatten-klein);
+}
+.booster-stand { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: .85rem; }
+#booster-session { font-weight: 700; color: var(--rot); }
+#booster-fehlen { color: var(--leise); }
+#booster-suche {
+  width: 100%; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--linie);
+  background: var(--flaeche); font-size: 16px;
+}
+.booster-tipp { margin: 12px 16px 4px; color: var(--leise); font-size: .88rem; }
+.booster-gitter { padding: 8px 16px; max-width: 1120px; margin: 0 auto; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+.booster-gitter .kachel img { filter: none; }       /* du sollst erkennen, was du suchst */
+.booster-gitter .kachel:not(.an) .ball { opacity: .6; }
+.booster-gitter .kachel.an img { opacity: .5; }
+.booster-gitter .kachel .selt { margin-top: 4px; }
+
+/* ========== Schichten: Rückblick & Feier ========== */
+.schicht { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; }
+.schicht[hidden] { display: none; }
+.schicht-hg { position: absolute; inset: 0; background: rgba(6,10,22,.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.schicht-karte {
+  position: relative; width: min(560px, 100%); max-height: 88vh; overflow-y: auto;
+  background: var(--flaeche); border-radius: var(--radius-gross); padding: 26px 22px 22px;
+  box-shadow: var(--schatten-gross);
+  animation: aufpoppen .4s cubic-bezier(.2, 1.3, .4, 1);
+}
+@keyframes aufpoppen { from { opacity: 0; transform: scale(.9) translateY(20px); } }
+
+.rueckblick-kopf { text-align: center; }
+.rueckblick-set { display: inline-block; font-size: .8rem; font-weight: 700; color: var(--leise); background: var(--flaeche-2); padding: 4px 12px; border-radius: 999px; }
+.rueckblick-kopf h2 { font-size: clamp(1.7rem, 7vw, 2.4rem); margin-top: 10px; line-height: 1.05; }
+.rueckblick-kopf p { color: var(--leise); margin: 8px 0 0; }
+.rueckblick-gitter { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); margin-top: 20px; }
+.rueckblick-pokemon {
+  margin: 0; text-align: center; padding: 6px 4px 8px; border-radius: var(--radius-klein);
+  background: radial-gradient(70% 60% at 50% 40%, color-mix(in srgb, var(--typ) 40%, transparent), transparent 75%), var(--flaeche-2);
+  animation: aufpoppen .45s cubic-bezier(.2, 1.3, .4, 1) backwards;
+}
+.rueckblick-pokemon:nth-child(2) { animation-delay: .05s; } .rueckblick-pokemon:nth-child(3) { animation-delay: .1s; }
+.rueckblick-pokemon:nth-child(4) { animation-delay: .15s; } .rueckblick-pokemon:nth-child(n+5) { animation-delay: .2s; }
+.rueckblick-pokemon img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+.rueckblick-pokemon figcaption { font-size: .8rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rueckblick-trophaeen { margin-top: 22px; }
+.rueckblick-trophaeen h3 { font-size: 1.05rem; margin-bottom: 10px; }
+.rueckblick-medaillen { display: flex; gap: 14px; flex-wrap: wrap; }
+.rueckblick-medaille { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 84px; text-align: center; font-size: .78rem; font-weight: 700; }
+.rueckblick-medaille .medaille { width: 64px; height: 64px; border-width: 3px; }
+.rueckblick-medaille .medaille img { width: 48px; height: 48px; }
+.rueckblick-knoepfe { justify-content: center; margin-top: 24px; }
+
+.feier-karte {
+  text-align: center; color: #fff; padding: 34px 24px 26px;
+  background:
+    radial-gradient(80% 70% at 50% 0%, rgba(255,203,5,.35), transparent 65%),
+    linear-gradient(160deg, #1B2747, #0F1630);
+}
+.feier-medaille { display: grid; place-items: center; }
+.feier-medaille .medaille { width: 150px; height: 150px; border-width: 6px; animation: medaille-dreh 1s cubic-bezier(.2, 1.2, .4, 1); }
+.feier-medaille .medaille img { width: 116px; height: 116px; }
+@keyframes medaille-dreh { from { transform: rotateY(180deg) scale(.4); opacity: 0; } }
+.feier-orden { display: block; margin-top: 18px; color: var(--gold); font-weight: 700; font-size: .9rem; }
+.feier-karte h2 { font-size: clamp(2rem, 9vw, 2.8rem); line-height: 1.02; margin-top: 6px; }
+.feier-karte p { opacity: .8; margin: 10px 0 22px; }
+.feier-karte .knopf { background: var(--gold); color: #121A2E; }
+.konfetti { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 120; pointer-events: none; }
+
+/* Ranking: Knöpfe */
+.knopf-glas { background: rgba(255,255,255,.12); color: #fff; box-shadow: none; border: 1px solid rgba(255,255,255,.25); }
+.sieger .knopf-zeile { margin-top: 18px; }
+.sieger .knopf-zeile .knopf { margin-top: 0; }
+.rang-details-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.rang-details-kopf p { margin: 0 !important; }
+.rang-details-kopf .knopf { padding: 9px 16px; font-size: .88rem; }
+.held-chip-haupt { background: #fff; color: var(--rot); border-color: #fff; }
+.held-chip-haupt:hover { background: #fff; }
+
+/* ========== Offline, Sync, Installieren ========== */
+.offline-hinweis {
+  flex: none; font-size: .75rem; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  background: var(--nacht); color: var(--schirm);
+}
+.offline-hinweis[hidden] { display: none; }
+.sync-qr { margin-top: 16px; text-align: center; }
+.sync-qr svg {
+  width: min(240px, 70vw); height: auto; display: block; margin: 0 auto;
+  background: #fff; border-radius: var(--radius-klein); padding: 6px;
+}
+.sync-qr p { font-size: .82rem; color: var(--leise); margin: 10px 0 0; }
+#sync-dialog h2 { font-size: 1.6rem; }
+#sync-dialog p { color: var(--leise); margin: 8px 0 0; }
+.sync-zahlen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; text-align: center; }
+.sync-zahlen div { background: var(--flaeche-2); border-radius: var(--radius-klein); padding: 12px 6px; line-height: 1.2; }
+.sync-zahlen b { display: block; font-family: var(--schrift-titel); font-weight: 800; font-size: 1.6rem; }
+.sync-zahlen span { font-size: .78rem; color: var(--leise); }
+#installieren-knopf { margin-bottom: 12px; }
+
+/* ========== Größere Bildschirme ========== */
+@media (min-width: 720px) {
+  .gitter { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 14px; }
+  :root { --kachel-min: 132px; }
+  :root[data-kachel="klein"] { --kachel-min: 100px; }
+  :root[data-kachel="gross"] { --kachel-min: 184px; }
+  .booster-gitter { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); }
+  .held { padding: 28px 32px; gap: 28px; }
+  .held-ring { width: 132px; height: 132px; }
+  .held-ring span { font-size: 1.9rem; }
+  .detail { align-items: center; }
+  .detail-blatt { border-radius: var(--radius-gross); max-height: 88vh; }
+  .detail-blatt::before { display: none; }
+  .detail-kopf img { width: 200px; height: 200px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
