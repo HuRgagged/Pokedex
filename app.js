@@ -513,6 +513,38 @@ function umschalteInfo() {
   if (infoOffen && !box.dataset.fertig) zeichneInfo(detailDex, box);
 }
 
+// Wechsel zu einer anderen Entwicklungsstufe mit Animation:
+// das kleine Bild fliegt nach oben ins große Kopfbild und leuchtet dabei weiß auf (wie in den Spielen)
+function wechsleZuEntwicklung(dex, knopf) {
+  if (dex === detailDex) return;
+  const blatt = document.querySelector('.detail-blatt');
+  const wechsel = () => { oeffneDetail(dex); blatt.scrollTop = 0; };
+  const ohneBewegung = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!document.startViewTransition || ohneBewegung) {
+    wechsel();
+    if (ohneBewegung) return;
+    // einfache Variante für Browser ohne View Transitions
+    const inhalt = document.getElementById('detail-inhalt');
+    inhalt.classList.remove('evo-wechsel');
+    void inhalt.offsetWidth;
+    inhalt.classList.add('evo-wechsel');
+    return;
+  }
+  // Namen müssen in jedem Zustand eindeutig sein: vorher trägt ihn das kleine Bild, danach das Kopfbild
+  const kleinesBild = knopf.querySelector('img');
+  if (kleinesBild) kleinesBild.style.viewTransitionName = 'pokemon-bild';
+  const uebergang = document.startViewTransition(() => {
+    wechsel();
+    const kopfBild = document.querySelector('.detail-kopf img');
+    if (kopfBild) kopfBild.style.viewTransitionName = 'pokemon-bild';
+  });
+  uebergang.finished.finally(() => {
+    const kopfBild = document.querySelector('.detail-kopf img');
+    if (kopfBild) kopfBild.style.viewTransitionName = '';
+  });
+}
+
 const zahl = (n, stellen = 1) => n.toLocaleString('de-DE', { maximumFractionDigits: stellen });
 
 async function zeichneInfo(dex, box) {
@@ -1887,7 +1919,7 @@ function start() {
     if (e.target.closest('[data-schliessen]')) { schliesseDetail(); return; }
     if (e.target.closest('[data-info-umschalten]')) { umschalteInfo(); return; }
     const evo = e.target.closest('[data-evo]');
-    if (evo) { oeffneDetail(+evo.dataset.evo); document.querySelector('.detail-blatt').scrollTop = 0; return; }
+    if (evo) { wechsleZuEntwicklung(+evo.dataset.evo, evo); return; }
     const setKnopf = e.target.closest('[data-toggle-set]');
     if (setKnopf) {
       offenesSet = offenesSet === setKnopf.dataset.toggleSet ? null : setKnopf.dataset.toggleSet;

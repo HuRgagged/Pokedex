@@ -457,6 +457,31 @@ main { max-width: 1120px; margin: 0 auto; }
 .info-evo-pokemon.aktuell { border-color: var(--rot); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rot) 25%, transparent); }
 @media (hover: hover) { .info-evo-pokemon:hover { border-color: var(--leise); } }
 .info-fussnote { margin: 18px 0 12px; font-size: .74rem; color: var(--leise); }
+
+/* ========== Animation beim Wechsel zwischen Entwicklungen ========== */
+/* Kopf und Name gleiten weich in die neue Farbe bzw. den neuen Namen */
+.detail-kopf { view-transition-name: detail-kopf; }
+.detail-kopf h2 { view-transition-name: pokemon-name; }
+::view-transition-group(detail-kopf) { animation-duration: .5s; animation-timing-function: cubic-bezier(.2, .9, .3, 1); }
+::view-transition-group(pokemon-name) { animation-duration: .45s; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .3s; }
+
+/* das Bild fliegt nach oben, leuchtet weiß auf und bekommt dann seine Farbe */
+::view-transition-group(pokemon-bild) { animation-duration: .6s; animation-timing-function: cubic-bezier(.2, .9, .3, 1); }
+::view-transition-old(pokemon-bild) { animation: evo-weiss-weg .35s ease-in both; }
+::view-transition-new(pokemon-bild) { animation: evo-weiss-rein .9s ease-out both; }
+@keyframes evo-weiss-weg {
+  to { filter: brightness(0) invert(1) drop-shadow(0 0 14px #fff); opacity: 0; }
+}
+@keyframes evo-weiss-rein {
+  0% { filter: brightness(0) invert(1) drop-shadow(0 0 18px #fff); }
+  45% { filter: brightness(0) invert(1) drop-shadow(0 0 24px #fff); }
+  100% { filter: drop-shadow(0 12px 16px rgba(0,0,0,.3)); }
+}
+
+/* einfache Variante für Browser ohne View Transitions */
+.evo-wechsel .detail-kopf img { animation: evo-weiss-rein .8s ease-out both; }
+.evo-wechsel > :not(.detail-kopf) { animation: aufklappen .35s ease-out both; }
 @media (min-width: 720px) { .info-fakten { grid-template-columns: repeat(3, 1fr); } }
 
 .detail-fang {
