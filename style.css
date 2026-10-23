@@ -746,20 +746,15 @@ button.karte-bild img { width: 100%; height: 100%; object-fit: cover; display: b
 }
 .booster-serie { display: block; margin-top: 10px; font-size: .85rem; opacity: .75; }
 
-/* Set wechseln: echter Auswahl-Dialog des Geräts, unsichtbar über einem hübschen Knopf */
+/* Set wechseln: öffnet die eigene Set-Auswahl */
 .booster-wechsel {
-  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: 6px;
   margin-top: 12px; padding: 8px 14px 8px 16px; border-radius: 999px;
-  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
-  font-weight: 700; font-size: .88rem; cursor: pointer;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); color: #fff;
+  font-weight: 700; font-size: .88rem;
 }
 .booster-wechsel:hover { background: rgba(255,255,255,.2); }
 .booster-wechsel svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-.booster-wechsel select {
-  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
-  font-size: 16px; /* verhindert Zoom auf dem iPhone */
-}
-.booster-wechsel:focus-within { outline: 3px solid var(--gold); outline-offset: 2px; }
 
 .booster-fortschritt { margin-top: 18px; }
 .booster-balken { height: 10px; border-radius: 5px; background: rgba(255,255,255,.14); overflow: hidden; }
@@ -822,6 +817,118 @@ button.karte-bild img { width: 100%; height: 100%; object-fit: cover; display: b
 .abschnitt-gefangen .kachel:not(.an) img { opacity: .9; }
 .booster-gitter .kachel.an img { opacity: .55; }
 .booster-gitter .kachel.an { box-shadow: 0 0 0 2px color-mix(in srgb, var(--typ) 60%, transparent), var(--schatten-klein); }
+
+/* ========== Auswahl-Fenster (Set wählen, seltene Karten) ========== */
+.auswahl-karte { width: min(620px, 100%); display: flex; flex-direction: column; padding: 20px 18px 18px; overflow: hidden; }
+.auswahl-kopf { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.auswahl-kopf h2 { font-size: 1.4rem; line-height: 1.15; }
+.auswahl-unter { margin: 4px 0 0; color: var(--leise); font-size: .88rem; }
+.auswahl-zu {
+  flex: none; width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid var(--linie); background: var(--flaeche-2); color: var(--nacht); font-size: .95rem;
+}
+#set-auswahl-suche {
+  width: 100%; padding: 11px 16px 11px 42px; border-radius: 999px; border: 1px solid var(--linie);
+  background: var(--flaeche-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2362708A' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E") no-repeat 15px center / 17px;
+  font-size: 16px; margin-bottom: 8px;
+}
+.set-liste, .karten-auswahl-gitter { overflow-y: auto; margin: 0 -18px; padding: 0 18px 4px; overscroll-behavior: contain; }
+.set-gruppe h3 {
+  position: sticky; top: 0; z-index: 1; background: var(--flaeche);
+  font-size: .8rem; font-family: var(--schrift); font-weight: 700; color: var(--leise);
+  padding: 12px 0 6px; letter-spacing: 0;
+}
+.set-zeile {
+  width: 100%; display: grid; grid-template-columns: 72px 1fr auto; align-items: center; gap: 12px;
+  padding: 8px 10px; border: 1px solid transparent; border-radius: var(--radius-klein);
+  background: none; text-align: left; font-family: var(--schrift);
+}
+.set-zeile:hover { background: var(--flaeche-2); }
+.set-zeile.aktiv { background: color-mix(in srgb, var(--rot) 8%, var(--flaeche)); border-color: color-mix(in srgb, var(--rot) 40%, transparent); }
+.set-zeile-logo { width: 72px; height: 34px; object-fit: contain; }
+.set-zeile-logo.logo-ersatz { font-size: .62rem; height: 34px; }
+.set-zeile-text b { display: block; font-weight: 700; line-height: 1.2; }
+.set-zeile-text small { color: var(--leise); font-size: .78rem; }
+.set-zeile-fehlen {
+  font-size: .75rem; font-weight: 700; white-space: nowrap; padding: 3px 10px; border-radius: 999px;
+  background: var(--flaeche-2); color: var(--leise); border: 1px solid var(--linie);
+}
+.set-zeile-fehlen.komplett { background: var(--gold); color: #121A2E; border-color: var(--gold); }
+
+/* seltene Karten zum Antippen */
+.karten-auswahl-gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 14px 10px; padding-top: 4px; }
+.auswahl-eintrag {
+  position: relative; border: none; background: none; padding: 0; text-align: left;
+  display: flex; flex-direction: column; gap: 4px; font-family: var(--schrift);
+}
+.auswahl-eintrag img, .auswahl-ohne-bild {
+  width: 100%; aspect-ratio: 245 / 342; object-fit: cover; border-radius: 4.5% / 3.2%;
+  background: var(--linie); box-shadow: var(--schatten-klein);
+  transition: transform .15s, box-shadow .15s;
+}
+.auswahl-ohne-bild { display: grid; place-items: center; font-size: .75rem; color: var(--leise); padding: 6px; text-align: center; }
+.auswahl-eintrag b { font-size: .8rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auswahl-eintrag .selt { align-self: flex-start; font-size: .68rem; }
+.auswahl-eintrag:active img { transform: scale(.96); }
+.auswahl-haken {
+  position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; background: rgba(255,255,255,.85); box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+.auswahl-haken svg { width: 18px; height: 18px; fill: none; stroke: #62708A; stroke-width: 2; stroke-linejoin: round; }
+.auswahl-eintrag.an img { box-shadow: 0 0 0 3px var(--gold), 0 6px 16px rgba(255,203,5,.4); }
+.auswahl-eintrag.an .auswahl-haken { background: var(--gold); }
+.auswahl-eintrag.an .auswahl-haken svg { fill: #121A2E; stroke: #121A2E; }
+
+/* ========== Galerie-Stern auf Karten ========== */
+.karte-rahmen { position: relative; }
+.galerie-knopf {
+  position: absolute; top: 4px; right: 4px; width: 40px; height: 40px; padding: 7px;
+  border: none; background: none; border-radius: 50%; display: grid; place-items: center;
+}
+.galerie-knopf svg {
+  width: 26px; height: 26px; padding: 4px; border-radius: 50%;
+  background: rgba(255,255,255,.88); box-shadow: 0 2px 6px rgba(0,0,0,.28);
+  fill: none; stroke: #62708A; stroke-width: 2; stroke-linejoin: round;
+  transition: transform .2s;
+}
+.galerie-knopf:hover svg { stroke: #121A2E; }
+.galerie-knopf.an svg { background: var(--gold); fill: #121A2E; stroke: #121A2E; animation: stern-pop .4s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes stern-pop { 50% { transform: scale(1.3) rotate(15deg); } }
+.galerie-knopf:active svg { transform: scale(.85); }
+
+.chase-aktion { padding: 0 16px; }
+.chase-aktion .knopf { display: inline-flex; align-items: center; gap: 8px; }
+.stern { width: 18px; height: 18px; fill: var(--gold); stroke: #B8890A; stroke-width: 1.5; stroke-linejoin: round; }
+
+/* ========== Galerie-Ansicht ========== */
+.galerie-gitter {
+  display: grid; gap: 22px 14px; padding: 8px 16px 24px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.galerie-karte { margin: 0; }
+.galerie-karte .karte-bild {
+  box-shadow: 0 6px 18px rgba(18,26,46,.25);
+  transition: transform .25s, box-shadow .25s;
+}
+@media (hover: hover) {
+  .galerie-karte .karte-bild:hover { transform: translateY(-6px) scale(1.03); box-shadow: 0 16px 36px rgba(18,26,46,.35); }
+}
+.galerie-karte figcaption { margin-top: 10px; display: flex; flex-direction: column; gap: 3px; }
+.galerie-karte figcaption b { font-size: .95rem; line-height: 1.2; }
+.galerie-set { font-size: .8rem; color: var(--leise); }
+.galerie-zeile { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; }
+.galerie-zeile .karte-preis { margin: 0; }
+.galerie-datum { font-size: .72rem; color: var(--leise); }
+.galerie-leer {
+  grid-column: 1 / -1; text-align: center; padding: 40px 20px;
+  background: var(--flaeche); border: 1px dashed var(--linie); border-radius: var(--radius-gross);
+}
+.galerie-leer svg { width: 56px; height: 56px; fill: var(--gold); stroke: #B8890A; stroke-width: 1; stroke-linejoin: round; }
+.galerie-leer h3 { font-size: 1.25rem; margin: 10px 0 6px; }
+.galerie-leer p { color: var(--leise); max-width: 46ch; margin: 0 auto; }
+.rueckblick-karten { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.rueckblick-karten img { width: 84px; aspect-ratio: 245 / 342; object-fit: cover; border-radius: 4.5% / 3.2%; box-shadow: var(--schatten); flex: none; }
+@media (min-width: 720px) { .galerie-gitter { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 28px 18px; } }
 
 /* ========== Schichten: Rückblick & Feier ========== */
 .schicht { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; }

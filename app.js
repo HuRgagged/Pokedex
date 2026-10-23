@@ -109,6 +109,10 @@ let ansicht = { kachel: 'mittel', fehlend: 'silhouette', sortierung: 'nummer', p
 let gruppen = [];          // aktuelle Abschnitte im Pokédex: { titel, liste }
 let booster = null;        // laufende Session: { setId, start, startHaken, startTrophaeen, reihenfolge }
 let preise = {};           // Karten-ID → [Euro oder null, Zeitpunkt]
+let kartenNachId = new Map(); // Karten-ID („set-nummer“) → Karte
+let galerie = new Map();   // Karten-ID → Zeitpunkt, an dem sie in die Galerie kam
+let galerieSort = 'neu';
+const SPEICHER_GALERIE = 'natdex:galerie';  // Karten-Galerie (nie umbenennen!)
 
 // ---------- Speichern ----------
 function ladeHaken() {
@@ -175,6 +179,7 @@ function speichereDatenImCache(d) {
 }
 
 function baueIndex() {
+  kartenNachId = new Map(daten.karten.map((k) => [`${k[0]}-${k[1]}`, k]));
   kartenProDex = Array.from({ length: ANZAHL_POKEMON + 1 }, () => []);
   for (const k of daten.karten) {
     for (const dex of k[4]) if (dex >= 1 && dex <= ANZAHL_POKEMON) kartenProDex[dex].push(k);
@@ -485,6 +490,10 @@ function kartenElement(k) {
   } else {
     karte.append(el('div', 'karte-bild karte-leer', 'Kein Bild vorhanden'));
   }
+  // Bild und Galerie-Stern in einen Rahmen legen
+  const rahmen = el('div', 'karte-rahmen');
+  rahmen.append(karte.firstChild, galerieKnopf(`${k[0]}-${k[1]}`));
+  karte.prepend(rahmen);
   karte.append(
     el('span', 'karte-serie', set.serieName),
     el('span', 'karte-set', setName(set) + (set.datum ? ` (${set.datum.slice(0, 4)})` : '')),
@@ -820,9 +829,6 @@ function oeffneBooster(setId) {
   speichereSession();
   try { localStorage.setItem('natdex:letztes-set', setId); } catch (e) {}
 
-  const auswahl = document.getElementById('booster-set');
-  auswahl.replaceChildren(...boosterSets().map(([id, s]) =>
-    new Option(`${setName(s)}${s.datum ? ` (${s.datum.slice(0, 4)})` : ''}`, id, false, id === setId)));
   document.getElementById('booster-suche').value = '';
   zeichneBooster();
   const fenster = document.getElementById('booster');
@@ -924,7 +930,9 @@ function chaseKarte(k, wert) {
     preis.title = 'Cardmarket-Trendpreis';
     unten.append(preis);
   }
-  fig.append(bild, unten);
+  const rahmen = el('div', 'karte-rahmen');
+  rahmen.append(bild, galerieKnopf(`${k[0]}-${k[1]}`));
+  fig.append(rahmen, unten);
   return fig;
 }
 
@@ -979,6 +987,216 @@ function beendeBooster(ueberHistory = false) {
   if (aktiveAnsicht() === 'ranking') zeichneRanking();
 }
 
+// ---------- Eigene Set-Auswahl ----------
+function oeffneSetAuswahl() {
+  // welche Pokémon stecken in welchem Set – in einem Durchlauf
+  const dexProSet = new Map();
+  for (const k of daten.karten) {
+    const id = TEIL_VON[k[0]] || k[0];
+    if (!daten.sets[id] || !daten.sets[id].booster) continue;
+    if (!dexProSet.has(id)) dexProSet.set(id, new Set());
+    k[4].forEach((d) => { if (d <= ANZAHL_POKEMON) dexProSet.get(id).add(d); });
+  }
+  const gruppenNachSerie = new Map();
+  for (const [id, set] of boosterSets()) {
+    const serie = set.serieName || 'Sonstige';
+    if (!gruppenNachSerie.has(serie)) gruppenNachSerie.set(serie, []);
+    gruppenNachSerie.get(serie).push([id, set]);
+  }
+  const frag = document.createDocumentFragment();
+  for (const [serie, sets] of gruppenNachSerie) {
+    const gruppe = el('section', 'set-gruppe');
+    gruppe.append(el('h3', null, serie));
+    for (const [id, set] of sets) {
+      const dex = dexProSet.get(id) || new Set();
+      const fehlen = [...dex].filter((d) => !haken.has(d)).length;
+      const zeile = el('button', 'set-zeile' + (booster && booster.setId === id ? ' aktiv' : ''));
+      zeile.type = 'button';
+      zeile.dataset.setWaehlen = id;
+      zeile.dataset.suche = `${setName(set)} ${serie}`.toLowerCase();
+      const text = el('span', 'set-zeile-text');
+      text.append(el('b', null, setName(set)), el('small', null, set.datum ? set.datum.slice(0, 4) : ''));
+      const status = el('span', 'set-zeile-fehlen' + (fehlen ? '' : ' komplett'),
+        !dex.size ? '–' : fehlen ? `${fehlen} fehlen` : 'komplett');
+      zeile.append(setLogo(set, 'set-zeile-logo'), text, status);
+      gruppe.append(zeile);
+    }
+    frag.append(gruppe);
+  }
+  document.getElementById('set-auswahl-liste').replaceChildren(frag);
+  const suche = document.getElementById('set-auswahl-suche');
+  suche.value = '';
+  document.getElementById('set-auswahl').hidden = false;
+  if (matchMedia('(pointer: fine)').matches) suche.focus(); // am Handy keine Tastatur aufklappen
+  document.querySelector('#set-auswahl-liste .set-zeile.aktiv')?.scrollIntoView({ block: 'center' });
+}
+
+function filtereSetAuswahl() {
+  const suche = document.getElementById('set-auswahl-suche').value.trim().toLowerCase();
+  document.querySelectorAll('#set-auswahl-liste .set-gruppe').forEach((gruppe) => {
+    let sichtbar = 0;
+    gruppe.querySelectorAll('.set-zeile').forEach((z) => {
+      z.hidden = !!suche && !z.dataset.suche.includes(suche);
+      if (!z.hidden) sichtbar++;
+    });
+    gruppe.hidden = !sichtbar;
+  });
+}
+
+function waehleSet(setId) {
+  document.getElementById('set-auswahl').hidden = true;
+  if (!booster) return;
+  booster.setId = setId;
+  speichereSession();
+  try { localStorage.setItem('natdex:letztes-set', setId); } catch (e) {}
+  document.getElementById('booster-suche').value = '';
+  zeichneBooster();
+  document.getElementById('booster').scrollTop = 0;
+}
+
+// ---------- Karten-Galerie ----------
+function ladeGalerie() {
+  try { galerie = new Map(JSON.parse(localStorage.getItem(SPEICHER_GALERIE) || '[]')); } catch (e) { galerie = new Map(); }
+}
+function speichereGalerie() {
+  try { localStorage.setItem(SPEICHER_GALERIE, JSON.stringify([...galerie])); }
+  catch (e) { alert('Galerie konnte nicht gespeichert werden – bitte ein Backup exportieren!'); }
+}
+
+const STERN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>';
+function galerieKnopf(kartenId) {
+  const drin = galerie.has(kartenId);
+  const b = el('button', 'galerie-knopf' + (drin ? ' an' : ''));
+  b.type = 'button';
+  b.dataset.galerie = kartenId;
+  b.setAttribute('aria-pressed', drin);
+  b.setAttribute('aria-label', drin ? 'Aus der Galerie entfernen' : 'Zur Galerie hinzufügen');
+  b.title = drin ? 'In deiner Galerie' : 'Zur Galerie hinzufügen';
+  b.innerHTML = STERN_SVG;
+  return b;
+}
+
+function umschaltenGalerie(kartenId) {
+  const k = kartenNachId.get(kartenId);
+  if (!k) return;
+  const neu = !galerie.has(kartenId);
+  if (neu) {
+    galerie.set(kartenId, Date.now());
+    if (booster) {
+      booster.karten = booster.karten || [];
+      if (!booster.karten.includes(kartenId)) booster.karten.push(kartenId);
+      speichereSession();
+    }
+    // wer die Karte hat, hat auch das Pokémon
+    const fehlend = k[4].filter((d) => d <= ANZAHL_POKEMON && !haken.has(d));
+    fehlend.forEach((d, i) => umschalten(d, i > 0));
+    if (!fehlend.length) zeigeKurzmeldung(`${k[2]} liegt jetzt in deiner Galerie`);
+  } else {
+    galerie.delete(kartenId);
+    if (booster && booster.karten) booster.karten = booster.karten.filter((id) => id !== kartenId);
+    zeigeKurzmeldung('Aus der Galerie entfernt');
+  }
+  speichereGalerie();
+  document.querySelectorAll(`[data-galerie="${CSS.escape(kartenId)}"]`).forEach((b) => {
+    b.classList.toggle('an', neu);
+    b.setAttribute('aria-pressed', neu);
+    if (b.classList.contains('galerie-knopf')) b.title = neu ? 'In deiner Galerie' : 'Zur Galerie hinzufügen';
+  });
+  if (aktiveAnsicht() === 'galerie') zeichneGalerie();
+}
+
+// Booster-Modus: alle seltenen Karten des Sets zum Antippen
+function oeffneKartenAuswahl() {
+  if (!booster) return;
+  const nummer = (k) => parseInt(decodeURIComponent(k[1]), 10) || 0;
+  const karten = daten.karten
+    .filter((k) => (TEIL_VON[k[0]] || k[0]) === booster.setId && gewicht(k[3]) < 1)
+    .sort((a, b) => (CHASE_RANG[b[3]] || 0) - (CHASE_RANG[a[3]] || 0) || gewicht(a[3]) - gewicht(b[3]) || nummer(a) - nummer(b));
+  const liste = document.getElementById('karten-auswahl-liste');
+  if (!karten.length) {
+    liste.replaceChildren(el('p', 'chase-leer', 'Für dieses Set sind keine seltenen Pokémon-Karten eingetragen.'));
+  } else {
+    liste.replaceChildren(...karten.map((k) => {
+      const id = `${k[0]}-${k[1]}`;
+      const eintrag = el('button', 'auswahl-eintrag' + (galerie.has(id) ? ' an' : ''));
+      eintrag.type = 'button';
+      eintrag.dataset.galerie = id;
+      eintrag.setAttribute('aria-pressed', galerie.has(id));
+      const img = el('img');
+      img.alt = ''; img.loading = 'lazy'; img.src = k[5] ? bildUrl(k) : bildUrl(k, 'en');
+      img.onerror = () => img.replaceWith(el('span', 'auswahl-ohne-bild', k[2]));
+      const haken_ = el('span', 'auswahl-haken');
+      haken_.innerHTML = STERN_SVG;
+      eintrag.append(img, haken_, el('b', null, k[2]), el('span', 'selt ' + gewichtKlasse(gewicht(k[3])), k[3]));
+      return eintrag;
+    }));
+  }
+  document.getElementById('karten-auswahl').hidden = false;
+  liste.scrollTop = 0;
+}
+
+// Galerie-Ansicht
+let galerieLauf = 0;
+async function zeichneGalerie() {
+  const ziel = document.getElementById('galerie');
+  const stand = document.getElementById('galerie-stand');
+  const lauf = ++galerieLauf;
+  if (!daten) { ziel.replaceChildren(el('p', 'hinweis', 'Kartendaten werden noch geladen …')); return; }
+  const eintraege = [...galerie].map(([id, zeit]) => ({ id, zeit, k: kartenNachId.get(id) })).filter((e) => e.k);
+  if (!eintraege.length) {
+    stand.textContent = 'Deine besonderen Karten an einem Ort.';
+    const leer = el('div', 'galerie-leer');
+    leer.innerHTML = STERN_SVG;
+    leer.append(
+      el('h3', null, 'Noch keine Karten in deiner Galerie'),
+      el('p', null, 'Tippe bei einer Karte auf den Stern – in der Detailansicht eines Pokémon, bei den Chase-Karten oder im Booster-Modus unter „Seltene Karte gezogen?“.'),
+    );
+    ziel.replaceChildren(leer);
+    return;
+  }
+  const werte = new Map();
+  const zeichne = () => {
+    const sortiert = [...eintraege];
+    if (galerieSort === 'neu') sortiert.sort((a, b) => b.zeit - a.zeit);
+    if (galerieSort === 'selten') sortiert.sort((a, b) => (CHASE_RANG[b.k[3]] || 0) - (CHASE_RANG[a.k[3]] || 0) || gewicht(a.k[3]) - gewicht(b.k[3]));
+    if (galerieSort === 'wert') sortiert.sort((a, b) => (werte.get(b.id) || 0) - (werte.get(a.id) || 0));
+    ziel.replaceChildren(...sortiert.map(({ id, zeit, k }) => {
+      const set = daten.sets[k[0]];
+      const url = k[5] ? bildUrl(k) : bildUrl(k, 'en');
+      const fig = el('figure', 'galerie-karte');
+      const rahmen = el('div', 'karte-rahmen');
+      const bild = el('button', 'karte-bild');
+      bild.type = 'button';
+      bild.dataset.gross = url.replace('/low.webp', '/high.webp');
+      bild.setAttribute('aria-label', `${k[2]} groß anzeigen`);
+      const img = el('img');
+      img.alt = ''; img.loading = 'lazy'; img.src = url;
+      img.onerror = () => bild.replaceWith(el('div', 'karte-bild karte-leer', 'Kein Bild'));
+      bild.append(img);
+      rahmen.append(bild, galerieKnopf(id));
+      const unten = el('figcaption');
+      unten.append(el('b', null, k[2]), el('span', 'galerie-set', setName(set) + (set.datum ? ` (${set.datum.slice(0, 4)})` : '')));
+      const zeile = el('div', 'galerie-zeile');
+      zeile.append(el('span', 'selt ' + gewichtKlasse(gewicht(k[3])), k[3]));
+      const w = werte.get(id);
+      if (w) zeile.append(el('span', 'karte-preis' + (w >= WERTVOLL_AB ? ' wertvoll' : ''), w.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })));
+      unten.append(zeile, el('small', 'galerie-datum', `Seit ${new Date(zeit).toLocaleDateString('de-DE')}`));
+      fig.append(rahmen, unten);
+      return fig;
+    }));
+  };
+  stand.textContent = eintraege.length === 1 ? '1 Karte' : `${eintraege.length} Karten`;
+  zeichne();
+  // Preise nachladen, dann Gesamtwert zeigen (und ggf. nach Wert sortieren)
+  const geladen = await Promise.all(eintraege.map((e) => holePreis(e.id)));
+  if (lauf !== galerieLauf) return;
+  eintraege.forEach((e, i) => werte.set(e.id, geladen[i]));
+  const summe = geladen.reduce((a, b) => a + (b || 0), 0);
+  stand.textContent = `${eintraege.length === 1 ? '1 Karte' : `${eintraege.length} Karten`}` +
+    (summe ? `, zusammen etwa ${summe.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} wert` : '');
+  zeichne();
+}
+
 // ---------- Session-Rückblick ----------
 let letzteSession = null;
 function zeigeRueckblick(s) {
@@ -1007,6 +1225,18 @@ function zeigeRueckblick(s) {
       g.append(f);
     });
     teile.push(g);
+  }
+  if (s.karten && s.karten.length) {
+    const box = el('div', 'rueckblick-trophaeen');
+    box.append(el('h3', null, s.karten.length === 1 ? 'Neu in deiner Galerie' : `${s.karten.length} neue Karten in deiner Galerie`));
+    const reihe = el('div', 'rueckblick-karten');
+    s.karten.map((id) => kartenNachId.get(id)).filter(Boolean).forEach((k) => {
+      const img = el('img');
+      img.alt = k[2]; img.loading = 'lazy'; img.src = k[5] ? bildUrl(k) : bildUrl(k, 'en');
+      reihe.append(img);
+    });
+    box.append(reihe);
+    teile.push(box);
   }
   if (trophaeen.length) {
     const t = el('div', 'rueckblick-trophaeen');
@@ -1309,15 +1539,16 @@ function starte3D() {
 // ---------- Backup ----------
 function exportieren() {
   const inhalt = JSON.stringify({
-    app: 'natdex', version: 1, exportiert: new Date().toISOString(),
+    app: 'natdex', version: 2, exportiert: new Date().toISOString(),
     haken: [...haken].sort((a, b) => a - b),
+    galerie: [...galerie],
   }, null, 1);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([inhalt], { type: 'application/json' }));
   a.download = `pokedex-backup-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  meldung(`Backup mit ${haken.size} Pokémon exportiert.`);
+  meldung(`Backup mit ${haken.size} Pokémon und ${galerie.size} ${galerie.size === 1 ? "Galerie-Karte" : "Galerie-Karten"} exportiert.`);
   try { localStorage.setItem(SPEICHER_LETZTES_BACKUP, String(Date.now())); } catch (e) {}
   zeichneHinweise();
 }
@@ -1399,13 +1630,17 @@ async function importieren(datei) {
     const liste = Array.isArray(json) ? json : json.haken;
     if (!Array.isArray(liste)) throw new Error('Keine Liste gefangener Pokémon gefunden');
     const neu = liste.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= ANZAHL_POKEMON);
+    const neueGalerie = Array.isArray(json.galerie) ? json.galerie.filter((e) => Array.isArray(e) && typeof e[0] === 'string') : [];
     const ersetzen = confirm(
-      `Das Backup enthält ${neu.length} Pokémon.\n\nOK = aktuelle Liste ERSETZEN\nAbbrechen = mit aktueller Liste ZUSAMMENFÜHREN`);
+      `Das Backup enthält ${neu.length} Pokémon und ${neueGalerie.length} Galerie-Karten.\n\nOK = aktuelle Daten ERSETZEN\nAbbrechen = mit aktuellen Daten ZUSAMMENFÜHREN`);
     if (ersetzen) haken = new Set(neu); else neu.forEach((n) => haken.add(n));
+    if (ersetzen && neueGalerie.length) galerie = new Map(neueGalerie);
+    else neueGalerie.forEach(([id, zeit]) => { if (!galerie.has(id)) galerie.set(id, zeit); });
     speichereHaken();
+    speichereGalerie();
     document.querySelectorAll('[data-dex]').forEach((k) => k.classList.toggle('an', haken.has(+k.dataset.dex)));
     zeichneFortschritt(); filtern();
-    meldung(`Backup importiert: ${haken.size} Pokémon gefangen.`);
+    meldung(`Backup importiert: ${haken.size} Pokémon gefangen, ${galerie.size} ${galerie.size === 1 ? "Karte" : "Karten"} in der Galerie.`);
   } catch (e) {
     meldung('Import fehlgeschlagen: ' + e.message);
   }
@@ -1428,6 +1663,7 @@ function zeigeAnsicht(nameAnsicht) {
   if (nameAnsicht === 'ranking') zeichneRanking();
   if (nameAnsicht === 'backup') zeichneDatenStatus();
   if (nameAnsicht === 'trophaeen') zeichneTrophaeen();
+  if (nameAnsicht === 'galerie') zeichneGalerie();
   window.scrollTo(0, 0);
 }
 
@@ -1446,6 +1682,7 @@ function start() {
   ladeHaken();
   ladeAnsicht();
   ladePreisCache();
+  ladeGalerie();
   zeichneDex();
   zeichneFortschritt();
   starteAppFunktionen();
@@ -1454,6 +1691,14 @@ function start() {
   zeichneHinweise();
 
   document.addEventListener('click', (e) => {
+    const stern = e.target.closest('[data-galerie]');
+    if (stern) { umschaltenGalerie(stern.dataset.galerie); return; }
+    if (e.target.closest('[data-set-auswahl]')) { oeffneSetAuswahl(); return; }
+    const setWahl = e.target.closest('[data-set-waehlen]');
+    if (setWahl) { waehleSet(setWahl.dataset.setWaehlen); return; }
+    if (e.target.closest('[data-seltene-karten]')) { oeffneKartenAuswahl(); return; }
+    const zu = e.target.closest('[data-auswahl-zu]');
+    if (zu) { zu.closest('.schicht').hidden = true; return; }
     const fang = e.target.closest('[data-fang]');
     if (fang) { umschalten(+fang.dataset.fang); return; }
     const karte = e.target.closest('.karte-bild[data-gross]');
@@ -1504,19 +1749,20 @@ function start() {
     if (detailDex !== null) schliesseDetail(true);
     else if (booster && !document.getElementById('booster').hidden) beendeBooster(true);
   });
-  document.getElementById('booster-set').addEventListener('change', (e) => {
-    booster.setId = e.target.value;
-    speichereSession();
-    try { localStorage.setItem('natdex:letztes-set', booster.setId); } catch (err) {}
-    document.getElementById('booster-suche').value = '';
-    zeichneBooster();
+  document.getElementById('set-auswahl-suche').addEventListener('input', filtereSetAuswahl);
+  document.getElementById('galerie-sortierung').addEventListener('click', (e) => {
+    const knopf = e.target.closest('button');
+    if (!knopf) return;
+    galerieSort = knopf.dataset.sort;
+    document.querySelectorAll('#galerie-sortierung button').forEach((b) => b.classList.toggle('aktiv', b === knopf));
+    zeichneGalerie();
   });
   document.getElementById('booster-suche').addEventListener('input', filtereBooster);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     const overlay = document.getElementById('bild-overlay');
     if (!overlay.hidden) { overlay.hidden = true; return; }
-    for (const id of ['feier', 'rueckblick']) {
+    for (const id of ['set-auswahl', 'karten-auswahl', 'feier', 'rueckblick']) {
       if (!document.getElementById(id).hidden) { document.getElementById(id).hidden = true; return; }
     }
     if (detailDex !== null) schliesseDetail();
