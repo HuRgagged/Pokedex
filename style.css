@@ -301,7 +301,8 @@ main { max-width: 1120px; margin: 0 auto; }
   .kachel:hover .kachel-oeffnen { transform-style: preserve-3d; }
   .kachel:hover img { transform: translateZ(36px) scale(1.06); }
   .kachel.an:hover img { filter: drop-shadow(0 10px 10px rgba(0,0,0,.25)); }
-  .kachel:hover .kachel-fang { transform: translateZ(24px); }
+  /* Pokéball muss räumlich VOR dem Bild liegen, sonst fängt das Bild den Klick ab */
+  .kachel:hover .kachel-fang { transform: translateZ(60px); }
 }
 .kachel-nr { display: block; margin-top: 4px; font-size: .72rem; color: var(--leise); font-variant-numeric: tabular-nums; font-weight: 600; }
 .kachel-name { display: block; font-weight: 700; font-size: .92rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

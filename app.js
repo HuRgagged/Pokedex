@@ -1367,6 +1367,15 @@ function start() {
       return;
     }
     const oeffnen = e.target.closest('.kachel-oeffnen');
+    // Absicherung: Klick im Bereich des Pokéballs fängt immer – auch wenn der 3D-Effekt
+    // das Bild räumlich davorschiebt und es den Klick abbekommt
+    if (oeffnen) {
+      const ballFeld = oeffnen.parentElement.querySelector('.kachel-fang').getBoundingClientRect();
+      if (e.clientX >= ballFeld.left && e.clientX <= ballFeld.right && e.clientY >= ballFeld.top && e.clientY <= ballFeld.bottom) {
+        umschalten(+oeffnen.parentElement.dataset.dex);
+        return;
+      }
+    }
     // im Booster-Modus fängt ein Tipp auf die Kachel direkt – das geht schneller
     if (oeffnen && oeffnen.closest('#booster')) { umschalten(+oeffnen.parentElement.dataset.dex); return; }
     if (oeffnen) { oeffneDetail(+oeffnen.parentElement.dataset.dex); return; }
