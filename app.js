@@ -1140,17 +1140,39 @@ function starteAppFunktionen() {
     document.getElementById('installieren-text').textContent = 'Der Pokédex läuft bereits als App auf diesem Gerät.';
     document.getElementById('installieren-anleitung').hidden = true;
   }
+  const knopf = document.getElementById('installieren-knopf');
+  if (alsApp) knopf.hidden = true;
+  // Gerät erkennen, um die passende Anleitung hervorzuheben
+  const ua = navigator.userAgent;
+  const geraet = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    ? 'ios' : /Android/.test(ua) ? 'android' : '';
   window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Dialog aufheben, bis du auf den Knopf tippst
     installHinweis = e;
-    document.getElementById('installieren-knopf').hidden = false;
   });
-  document.getElementById('installieren-knopf').addEventListener('click', async () => {
-    if (!installHinweis) return;
-    installHinweis.prompt();
-    await installHinweis.userChoice;
-    installHinweis = null;
-    document.getElementById('installieren-knopf').hidden = true;
+  window.addEventListener('appinstalled', () => {
+    knopf.hidden = true;
+    document.getElementById('installieren-text').textContent = 'Installiert! Du findest den Pokédex jetzt auf deinem Startbildschirm.';
+    document.getElementById('installieren-anleitung').hidden = true;
+  });
+  knopf.addEventListener('click', async () => {
+    if (installHinweis) {
+      // Android/Chrome: echten Installations-Dialog zeigen
+      installHinweis.prompt();
+      await installHinweis.userChoice;
+      installHinweis = null;
+      return;
+    }
+    // kein Dialog verfügbar (iPhone, oder Chrome bietet ihn gerade nicht an): Anleitung zeigen
+    const anleitung = document.getElementById('installieren-anleitung');
+    anleitung.querySelectorAll('[data-geraet]').forEach((s) => {
+      s.classList.toggle('hervorgehoben', s.dataset.geraet === geraet);
+      s.hidden = !!geraet && s.dataset.geraet !== geraet;
+    });
+    anleitung.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    zeigeKurzmeldung(geraet === 'ios'
+      ? 'Auf dem iPhone geht das über das Teilen-Symbol – siehe Anleitung'
+      : 'Dein Browser bietet keinen direkten Dialog an – siehe Anleitung');
   });
   document.getElementById('sync-teilen').addEventListener('click', teileSyncLink);
   document.getElementById('sync-qr-knopf').addEventListener('click', zeigeSyncQr);

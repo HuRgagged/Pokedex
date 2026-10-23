@@ -68,6 +68,8 @@
 
 /* ========== Grundlagen ========== */
 * { box-sizing: border-box; }
+/* „hidden“ muss immer verstecken – auch bei Elementen mit eigener display-Regel (z. B. .knopf) */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -791,7 +793,14 @@ button.karte-bild img { width: 100%; height: 100%; object-fit: cover; display: b
 .sync-zahlen div { background: var(--flaeche-2); border-radius: var(--radius-klein); padding: 12px 6px; line-height: 1.2; }
 .sync-zahlen b { display: block; font-family: var(--schrift-titel); font-weight: 800; font-size: 1.6rem; }
 .sync-zahlen span { font-size: .78rem; color: var(--leise); }
-#installieren-knopf { margin-bottom: 12px; }
+#installieren-knopf { margin-bottom: 14px; }
+.anleitung { display: grid; gap: 10px; }
+.anleitung-schritt {
+  background: var(--flaeche-2); border: 1px solid var(--linie); border-radius: var(--radius-klein);
+  padding: 12px 14px; font-size: .92rem;
+}
+.anleitung-schritt ol { margin: 6px 0 0; padding-left: 20px; color: var(--leise); display: grid; gap: 4px; }
+.anleitung-schritt.hervorgehoben { border-color: var(--rot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rot) 18%, transparent); }
 
 /* ========== Größere Bildschirme ========== */
 @media (min-width: 720px) {

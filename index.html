@@ -170,11 +170,25 @@
       <div class="block" id="installieren-block">
         <h2>Als App installieren</h2>
         <p id="installieren-text">Lege den Pokédex auf deinen Startbildschirm. Dann öffnet er sich wie eine App und funktioniert auch ohne Internet.</p>
-        <button type="button" id="installieren-knopf" class="knopf" hidden>Jetzt installieren</button>
-        <ul class="luecken" id="installieren-anleitung">
-          <li><b>iPhone (Safari):</b> Teilen-Symbol antippen, dann „Zum Home-Bildschirm“.</li>
-          <li><b>Android (Chrome):</b> Menü ⋮ antippen, dann „App installieren“ oder „Zum Startbildschirm hinzufügen“.</li>
-        </ul>
+        <button type="button" id="installieren-knopf" class="knopf">Jetzt installieren</button>
+        <div id="installieren-anleitung" class="anleitung">
+          <div class="anleitung-schritt" data-geraet="ios">
+            <b>iPhone / iPad</b>
+            <ol>
+              <li>Seite in <b>Safari</b> öffnen (in Chrome geht es ab iOS 16.4 genauso).</li>
+              <li>Unten bzw. oben auf das <b>Teilen-Symbol</b> tippen (Quadrat mit Pfeil nach oben).</li>
+              <li>Nach unten scrollen und <b>„Zum Home-Bildschirm“</b> wählen, dann „Hinzufügen“.</li>
+            </ol>
+          </div>
+          <div class="anleitung-schritt" data-geraet="android">
+            <b>Android</b>
+            <ol>
+              <li>Seite in <b>Chrome</b> öffnen.</li>
+              <li>Oben rechts auf das <b>Menü ⋮</b> tippen.</li>
+              <li><b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b> wählen.</li>
+            </ol>
+          </div>
+        </div>
       </div>
       <div class="block">
         <h2>Backup</h2>
