@@ -1048,13 +1048,14 @@ function liesSyncCode(code) {
   }
   return menge;
 }
-const syncLink = () => `${location.origin}${location.pathname}#sync=1.${syncCode(haken)}`;
+const ONLINE_ADRESSE = 'https://hurgagged.github.io/Pokedex/';
 const istLokal = () => ['localhost', '127.0.0.1', ''].includes(location.hostname) || location.protocol === 'file:';
+// Auf dem PC (lokal) zeigt der Link auf die Online-Seite – so kommen die Häkchen von hier dorthin
+const syncLink = () => `${istLokal() ? ONLINE_ADRESSE : location.origin + location.pathname}#sync=1.${syncCode(haken)}`;
 const syncMeldung = (text) => { document.getElementById('sync-meldung').textContent = text; };
 
 async function teileSyncLink() {
   const link = syncLink();
-  if (istLokal()) syncMeldung('Hinweis: Die Seite läuft gerade nur auf diesem PC. Der Link funktioniert auf anderen Geräten erst, wenn die Seite online ist.');
   if (navigator.share && matchMedia('(pointer: coarse)').matches) {
     try {
       await navigator.share({ title: 'Mein Pokédex', text: `Meine Pokédex-Liste (${haken.size} Pokémon)`, url: link });
@@ -1063,7 +1064,7 @@ async function teileSyncLink() {
   }
   try {
     await navigator.clipboard.writeText(link);
-    if (!istLokal()) syncMeldung(`Link kopiert (${haken.size} Pokémon). Schick ihn dir selbst, z. B. per Mail oder Messenger, und öffne ihn auf dem anderen Gerät.`);
+    syncMeldung(`Link kopiert (${haken.size} Pokémon). Schick ihn dir selbst, z. B. per Mail oder Messenger, und öffne ihn auf dem anderen Gerät.`);
   } catch (e) {
     prompt('Diesen Link auf dem anderen Gerät öffnen:', link);
   }
@@ -1077,9 +1078,7 @@ function zeigeSyncQr() {
   qr.addData(syncLink());
   qr.make();
   box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 3, scalable: true });
-  box.append(el('p', null, istLokal()
-    ? 'Funktioniert erst, wenn die Seite online ist – auf dem PC führt der Code nur zu diesem Rechner.'
-    : `Mit der Handy-Kamera scannen. Enthält ${haken.size} Pokémon.`));
+  box.append(el('p', null, `Mit der Handy-Kamera scannen. Enthält ${haken.size} Pokémon.`));
   box.hidden = false;
   document.getElementById('sync-qr-knopf').textContent = 'QR-Code ausblenden';
 }
