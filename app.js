@@ -1222,6 +1222,79 @@ function exportieren() {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   meldung(`Backup mit ${haken.size} Pokémon exportiert.`);
+  try { localStorage.setItem(SPEICHER_LETZTES_BACKUP, String(Date.now())); } catch (e) {}
+  zeichneHinweise();
+}
+
+// ---------- Hinweise oben im Pokédex: Backup-Erinnerung, Tipp zum Schnellfang ----------
+const SPEICHER_LETZTES_BACKUP = 'natdex:letztes-backup';
+const SPEICHER_ERSTER_START = 'natdex:erster-start';
+const SPEICHER_BACKUP_SPAETER = 'natdex:backup-spaeter';
+const SPEICHER_TIPP_BALL = 'natdex:tipp-ball';
+const BACKUP_ERINNERN_TAGE = 28;
+const BACKUP_SPAETER_TAGE = 3;
+
+const lies = (schluessel) => { try { return localStorage.getItem(schluessel); } catch (e) { return null; } };
+const schreib = (schluessel, wert) => { try { localStorage.setItem(schluessel, wert); } catch (e) {} };
+const tageSeit = (zeit) => Math.floor((Date.now() - zeit) / 864e5);
+
+function brauchtBackupErinnerung() {
+  if (!haken.size) return false;
+  const letztes = +lies(SPEICHER_LETZTES_BACKUP) || 0;
+  const start = +lies(SPEICHER_ERSTER_START) || Date.now();
+  if (tageSeit(letztes || start) < BACKUP_ERINNERN_TAGE) return false;
+  if (Date.now() < (+lies(SPEICHER_BACKUP_SPAETER) || 0)) return false;
+  // nur erinnern, wenn sich seit dem letzten Backup etwas geändert hat
+  let geaendert = 0;
+  try { geaendert = Date.parse(JSON.parse(lies(SPEICHER_HAKEN)).geaendert) || 0; } catch (e) {}
+  return !letztes || geaendert > letztes;
+}
+
+function hinweisKarte(klasse, titel, text, knoepfe) {
+  const karte = el('div', 'hinweis-karte ' + klasse);
+  karte.setAttribute('role', 'status');
+  const textBox = el('div', 'hinweis-text');
+  textBox.append(el('b', null, titel), el('span', null, text));
+  const knopfBox = el('div', 'hinweis-knoepfe');
+  knoepfe.forEach(([beschriftung, stil, aktion]) => {
+    const b = el('button', 'knopf ' + stil, beschriftung);
+    b.type = 'button';
+    b.addEventListener('click', aktion);
+    knopfBox.append(b);
+  });
+  karte.append(textBox, knopfBox);
+  return karte;
+}
+
+function zeichneHinweise() {
+  const box = document.getElementById('hinweis-karten');
+  const karten = [];
+  if (brauchtBackupErinnerung()) {
+    const letztes = +lies(SPEICHER_LETZTES_BACKUP) || 0;
+    karten.push(hinweisKarte('hinweis-backup', 'Zeit für ein Backup',
+      letztes
+        ? `Dein letztes Backup ist ${tageSeit(letztes)} Tage her, seitdem hast du weiter abgehakt. Sichere die Datei z. B. in deiner Cloud oder per Mail an dich.`
+        : `Du hast noch kein Backup deiner ${haken.size} Pokémon gemacht. Wenn der Browser seine Daten löscht, wären sie sonst weg.`,
+      [
+        ['Backup speichern', '', exportieren],
+        [`In ${BACKUP_SPAETER_TAGE} Tagen erinnern`, 'knopf-zwei', () => {
+          schreib(SPEICHER_BACKUP_SPAETER, String(Date.now() + BACKUP_SPAETER_TAGE * 864e5));
+          zeichneHinweise();
+        }],
+      ]));
+  }
+  if (!lies(SPEICHER_TIPP_BALL)) {
+    karten.push(hinweisKarte('hinweis-tipp', 'Tipp: Schnell fangen',
+      'Tippe auf den kleinen Pokéball oben rechts in einer Kachel – dann ist das Pokémon sofort gefangen. Auf das Bild tippen zeigt alle Karten.',
+      [['Verstanden', 'knopf-zwei', () => { schreib(SPEICHER_TIPP_BALL, '1'); zeichneHinweise(); }]]));
+  }
+  box.replaceChildren(...karten);
+
+  const stand = document.getElementById('backup-stand');
+  const letztes = +lies(SPEICHER_LETZTES_BACKUP) || 0;
+  stand.textContent = letztes
+    ? `Letztes Backup: ${new Date(letztes).toLocaleDateString('de-DE')} (vor ${tageSeit(letztes)} Tagen)`
+    : 'Auf diesem Gerät wurde noch kein Backup gemacht.';
 }
 
 async function importieren(datei) {
@@ -1281,6 +1354,8 @@ function start() {
   zeichneFortschritt();
   starteAppFunktionen();
   pruefeSyncLink();
+  if (!lies(SPEICHER_ERSTER_START)) schreib(SPEICHER_ERSTER_START, String(Date.now()));
+  zeichneHinweise();
 
   document.addEventListener('click', (e) => {
     const fang = e.target.closest('[data-fang]');

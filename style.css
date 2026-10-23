@@ -305,10 +305,22 @@ main { max-width: 1120px; margin: 0 auto; }
 }
 .kachel-nr { display: block; margin-top: 4px; font-size: .72rem; color: var(--leise); font-variant-numeric: tabular-nums; font-weight: 600; }
 .kachel-name { display: block; font-weight: 700; font-size: .92rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Schnellfang-Knopf: 44 px Tippfläche, sichtbar als kleiner runder Knopf */
 .kachel-fang {
-  position: absolute; top: 4px; right: 4px;
-  width: 40px; height: 40px; padding: 8px;
+  position: absolute; top: 0; right: 0;
+  width: 44px; height: 44px; padding: 7px;
   border: none; background: none; border-radius: 50%;
+}
+.kachel-fang .ball-box {
+  border-radius: 50%; padding: 2px;
+  background: var(--flaeche);
+  box-shadow: 0 1px 3px rgba(18,26,46,.25), 0 0 0 1px var(--linie);
+}
+.kachel-fang .ball { opacity: .85; --ball-rand: var(--leise); }
+.an .kachel-fang .ball { opacity: 1; --ball-rand: #121A2E; }
+@media (hover: hover) {
+  .kachel-fang:hover .ball-box { box-shadow: 0 2px 8px rgba(18,26,46,.3), 0 0 0 2px var(--rot); }
+  .kachel-fang:hover .ball { opacity: 1; --ball-oben: color-mix(in srgb, var(--rot) 35%, transparent); }
 }
 .kachel-fang:active { transform: scale(.88); }
 .fang-animation .ball { animation: wackeln .5s ease; }
@@ -774,6 +786,23 @@ button.karte-bild img { width: 100%; height: 100%; object-fit: cover; display: b
 .rang-details-kopf .knopf { padding: 9px 16px; font-size: .88rem; }
 .held-chip-haupt { background: #fff; color: var(--rot); border-color: #fff; }
 .held-chip-haupt:hover { background: #fff; }
+
+/* ========== Hinweis-Karten (Backup-Erinnerung, Tipps) ========== */
+#hinweis-karten { display: grid; gap: 10px; margin: 12px 16px 0; }
+#hinweis-karten:empty { display: none; }
+.hinweis-karte {
+  display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;
+  background: var(--flaeche); border: 1px solid var(--linie); border-left: 4px solid var(--gold);
+  border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--schatten-klein);
+  animation: aufpoppen .35s ease-out;
+}
+.hinweis-backup { border-left-color: var(--rot); }
+.hinweis-text { flex: 1 1 240px; line-height: 1.35; }
+.hinweis-text b { display: block; font-family: var(--schrift-titel); font-weight: 800; font-size: 1.05rem; }
+.hinweis-text span { color: var(--leise); font-size: .9rem; }
+.hinweis-knoepfe { display: flex; gap: 8px; flex-wrap: wrap; }
+.hinweis-knoepfe .knopf { padding: 9px 16px; font-size: .88rem; }
+.backup-stand { font-size: .85rem; font-weight: 600; color: var(--nacht) !important; margin: 12px 0 0 !important; }
 
 /* ========== Offline, Sync, Installieren ========== */
 .offline-hinweis {
