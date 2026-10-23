@@ -835,24 +835,115 @@ function oeffneBooster(setId) {
 }
 
 function zeichneBooster() {
-  const imSet = pokemonImSet(booster.setId);
-  // fehlende zuerst, darin die leicht ziehbaren vorne
-  const eintraege = [...imSet].sort((a, b) =>
-    (haken.has(a[0]) - haken.has(b[0])) || b[1].w - a[1].w || a[0] - b[0]);
-  const g = document.getElementById('booster-gitter');
-  g.replaceChildren(...eintraege.map(([dex, info]) =>
-    kachel(dex, 160, el('span', 'selt ' + gewichtKlasse(info.w), info.seltenheit))));
+  const set = daten.sets[booster.setId];
+  // Set-Bühne
+  document.getElementById('booster-titel').textContent = setName(set);
+  document.getElementById('booster-logo').replaceChildren(setLogo(set, 'booster-logo-bild'));
+  document.getElementById('booster-serie').textContent =
+    [set.serieName, set.datum ? `erschienen ${set.datum.slice(0, 4)}` : ''].filter(Boolean).join(', ');
+
+  // Pokémon in zwei Abschnitten; fehlende zuerst, darin die leicht ziehbaren vorne.
+  // Wer während der Session gefangen wird, bleibt an seinem Platz (nichts springt).
+  const eintraege = [...pokemonImSet(booster.setId)].sort((a, b) => b[1].w - a[1].w || a[0] - b[0]);
+  const abschnitt = (titel, liste, klasse) => {
+    const sektion = el('section', 'booster-abschnitt ' + klasse);
+    const kopf = el('h3', null, titel);
+    kopf.append(el('span', 'booster-abschnitt-zahl', liste.length));
+    const g = el('div', 'gitter');
+    liste.forEach(([dex, info]) => g.append(kachel(dex, 160, el('span', 'selt ' + gewichtKlasse(info.w), info.seltenheit))));
+    sektion.append(kopf, g);
+    sektion.hidden = !liste.length;
+    return sektion;
+  };
+  document.getElementById('booster-gitter').replaceChildren(
+    abschnitt('Fehlen dir noch', eintraege.filter(([d]) => !haken.has(d)), 'abschnitt-fehlend'),
+    abschnitt('Schon gefangen', eintraege.filter(([d]) => haken.has(d)), 'abschnitt-gefangen'),
+  );
   aktualisiereBoosterStand();
+  zeichneChase(booster.setId);
 }
 
 function aktualisiereBoosterStand() {
   if (!booster) return;
   const imSet = [...document.querySelectorAll('#booster-gitter .kachel')];
-  const fehlen = imSet.filter((k) => !haken.has(+k.dataset.dex)).length;
+  const gefangen = imSet.filter((k) => haken.has(+k.dataset.dex)).length;
   const neu = booster.reihenfolge.length;
-  document.getElementById('booster-session').textContent =
-    neu ? `${neu} neu in dieser Session` : 'Noch nichts Neues in dieser Session';
-  document.getElementById('booster-fehlen').textContent = `${fehlen} von ${imSet.length} fehlen dir im Set`;
+  const chip = document.getElementById('booster-session');
+  const vorher = +chip.dataset.anzahl || 0;
+  chip.dataset.anzahl = neu;
+  chip.textContent = neu ? `+${neu} neu` : '0 neu';
+  chip.classList.toggle('aktiv', neu > 0);
+  if (neu > vorher) { chip.classList.remove('hupf'); void chip.offsetWidth; chip.classList.add('hupf'); }
+  document.getElementById('booster-balken').style.width = imSet.length ? (gefangen / imSet.length) * 100 + '%' : '0';
+  document.getElementById('booster-fehlen').textContent = imSet.length
+    ? (gefangen === imSet.length ? `Alle ${imSet.length} Pokémon aus diesem Set gefangen!` : `${gefangen} von ${imSet.length} Pokémon aus diesem Set gefangen`)
+    : 'In diesem Set sind keine Pokémon-Karten eingetragen.';
+}
+
+// ---------- Chase-Karten: die wertvollsten Karten eines Sets ----------
+// Vorauswahl nach Seltenheit, dann nach Cardmarket-Preis sortiert (Preise werden nachgeladen)
+const CHASE_RANG = {
+  'Mega Hyper Selten': 9, 'Hyperselten': 8, 'Selten, besondere Illustration': 8, 'Versteckt Selten': 7,
+  'Mega Attack Rare': 6, 'ultraselten, Schillernd': 6, 'Shiny rare VMAX': 5, 'Shiny rare V': 5, 'Shiny rare': 5,
+  'Selten, Illustration': 4, 'Atemberaubend': 4, 'Vollkunsttrainer': 4, 'Pikachu Rare': 4,
+  'Holografisch Selten VMAX': 3, 'Holografisch Selten VSTAR': 3, 'Ultra Selten': 3, 'Selten, Strahlend': 3,
+  'Holografisch Selten V': 2, 'Doppelselten': 2, 'Selten, Holografisch LV.X': 2, 'LEGENDE': 2, 'selten, Primus': 2,
+  'Holografisch Selten': 1, 'Selten, Holografisch': 1,
+};
+const CHASE_ANZAHL = 10;
+const CHASE_KANDIDATEN = 24;
+
+function chaseKandidaten(setId) {
+  const karten = daten.karten.filter((k) => (TEIL_VON[k[0]] || k[0]) === setId);
+  const rang = (k) => CHASE_RANG[k[3]] || 0;
+  const nummer = (k) => parseInt(decodeURIComponent(k[1]), 10) || 0;
+  karten.sort((a, b) => rang(b) - rang(a) || gewicht(a[3]) - gewicht(b[3]) || nummer(b) - nummer(a));
+  // ohne besondere Seltenheiten (alte Sets): die seltenste vorhandene Stufe nehmen
+  const besondere = karten.filter((k) => rang(k) > 0);
+  return (besondere.length ? besondere : karten.filter((k) => gewicht(k[3]) === gewicht(karten[0][3])))
+    .slice(0, CHASE_KANDIDATEN);
+}
+
+function chaseKarte(k, wert) {
+  const url = k[5] ? bildUrl(k) : bildUrl(k, 'en');
+  const fig = el('figure', 'chase-karte');
+  const bild = el('button', 'karte-bild');
+  bild.type = 'button';
+  bild.dataset.gross = url.replace('/low.webp', '/high.webp');
+  bild.setAttribute('aria-label', `${k[2]} groß anzeigen`);
+  const img = el('img');
+  img.alt = ''; img.loading = 'lazy'; img.src = url;
+  img.onerror = () => bild.replaceWith(el('div', 'karte-bild karte-leer', 'Kein Bild'));
+  bild.append(img);
+  if (k[4].some((d) => haken.has(d))) bild.append(el('span', 'chase-im-dex', 'Im Dex'));
+  const unten = el('figcaption');
+  unten.append(el('b', null, k[2]), el('span', 'selt w4', k[3]));
+  if (wert) {
+    const preis = el('span', 'karte-preis' + (wert >= WERTVOLL_AB ? ' wertvoll' : ''),
+      wert.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }));
+    preis.title = 'Cardmarket-Trendpreis';
+    unten.append(preis);
+  }
+  fig.append(bild, unten);
+  return fig;
+}
+
+let chaseZaehler = 0; // verhindert, dass ein alter Abruf ein neues Set überschreibt
+async function zeichneChase(setId) {
+  const reihe = document.getElementById('chase-reihe');
+  const kandidaten = chaseKandidaten(setId);
+  const lauf = ++chaseZaehler;
+  if (!kandidaten.length) { reihe.replaceChildren(el('p', 'chase-leer', 'Für dieses Set sind keine Karten eingetragen.')); return; }
+  // sofort nach Seltenheit zeigen, dann nach Preis neu sortieren
+  reihe.replaceChildren(...kandidaten.slice(0, CHASE_ANZAHL).map((k) => chaseKarte(k, null)));
+  reihe.scrollLeft = 0;
+  reihe.classList.add('laedt');
+  const werte = await Promise.all(kandidaten.map((k) => holePreis(`${k[0]}-${k[1]}`)));
+  if (lauf !== chaseZaehler) return;
+  reihe.classList.remove('laedt');
+  const mitWert = kandidaten.map((k, i) => [k, werte[i]]);
+  if (mitWert.some(([, w]) => w)) mitWert.sort((a, b) => (b[1] || 0) - (a[1] || 0));
+  reihe.replaceChildren(...mitWert.slice(0, CHASE_ANZAHL).map(([k, w]) => chaseKarte(k, w)));
 }
 
 function merkeInSession(dex, jetztAn) {
@@ -865,9 +956,14 @@ function merkeInSession(dex, jetztAn) {
 
 function filtereBooster() {
   const suche = document.getElementById('booster-suche').value.trim().toLowerCase().replace(/^#0*/, '');
-  for (const k of document.querySelectorAll('#booster-gitter .kachel')) {
-    const dex = +k.dataset.dex;
-    k.hidden = !!suche && !(/^\d+$/.test(suche) ? String(dex).startsWith(suche) : name(dex).toLowerCase().includes(suche));
+  for (const sektion of document.querySelectorAll('#booster-gitter .booster-abschnitt')) {
+    let sichtbar = 0;
+    for (const k of sektion.querySelectorAll('.kachel')) {
+      const dex = +k.dataset.dex;
+      k.hidden = !!suche && !(/^\d+$/.test(suche) ? String(dex).startsWith(suche) : name(dex).toLowerCase().includes(suche));
+      if (!k.hidden) sichtbar++;
+    }
+    sektion.hidden = !sichtbar;
   }
 }
 

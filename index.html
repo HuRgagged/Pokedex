@@ -252,20 +252,44 @@
 
   <!-- Booster-Modus: ein Set öffnen und mit einem Tipp abhaken -->
   <div id="booster" class="booster" hidden role="dialog" aria-modal="true" aria-labelledby="booster-titel">
-    <header class="booster-kopf">
-      <div class="booster-kopf-zeile">
-        <h2 id="booster-titel">Booster öffnen</h2>
-        <button type="button" class="knopf booster-fertig" data-booster-ende>Fertig</button>
+    <!-- schmale Leiste, bleibt beim Scrollen stehen -->
+    <header class="booster-leiste">
+      <div class="booster-leiste-text">
+        <span class="booster-leiste-klein">Booster öffnen</span>
+        <h2 id="booster-titel">–</h2>
       </div>
-      <select id="booster-set" aria-label="Welches Set öffnest du?"></select>
-      <div class="booster-stand">
-        <span id="booster-session"></span>
+      <span id="booster-session" class="session-chip"></span>
+      <button type="button" class="knopf booster-fertig" data-booster-ende>Fertig</button>
+    </header>
+
+    <!-- Set-Bühne -->
+    <section class="booster-buehne">
+      <div id="booster-logo" class="booster-logo"></div>
+      <span id="booster-serie" class="booster-serie"></span>
+      <label class="booster-wechsel">
+        <span>Set wechseln</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        <select id="booster-set" aria-label="Welches Set öffnest du?"></select>
+      </label>
+      <div class="booster-fortschritt">
+        <div class="booster-balken"><i id="booster-balken"></i></div>
         <span id="booster-fehlen"></span>
       </div>
+    </section>
+
+    <!-- Chase-Karten -->
+    <section class="chase">
+      <div class="chase-kopf">
+        <h3>Chase-Karten</h3>
+        <span>Die wertvollsten Pokémon-Karten im Set</span>
+      </div>
+      <div id="chase-reihe" class="chase-reihe"></div>
+    </section>
+
+    <div class="booster-suche-zeile">
       <input id="booster-suche" type="search" placeholder="Im Set suchen" autocomplete="off" aria-label="Im Set suchen">
-    </header>
-    <p class="booster-tipp">Tippe auf ein Pokémon, sobald du es gezogen hast.</p>
-    <div id="booster-gitter" class="gitter booster-gitter"></div>
+    </div>
+    <div id="booster-gitter" class="booster-gitter"></div>
   </div>
 
   <!-- Session-Rückblick -->
