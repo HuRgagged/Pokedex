@@ -9,7 +9,7 @@ const MAX_DATEIEN = 2500; // so viele Bilder höchstens aufheben
 
 const GRUNDGERUEST = [
   './', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest',
-  'data/pokemon-namen.js', 'data/pokemon-typen.js', 'data/pokemon-gruppen.js',
+  'data/pokemon-namen.js', 'data/pokemon-typen.js', 'data/pokemon-gruppen.js', 'data/pokemon-info.json',
   'icons/icon-192.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png',
 ];
 const FREMDE_DATEIEN = ['wsrv.nl', 'assets.tcgdex.net', 'raw.githubusercontent.com',

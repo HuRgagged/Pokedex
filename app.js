@@ -104,6 +104,9 @@ let haken = new Set();     // gefangene dexIds
 let offenesSet = null;     // aufgeklapptes Set im Ranking
 let statusFilter = 'alle';
 let detailDex = null;      // gerade geöffnetes Pokémon
+let infoOffen = false;     // Pokémon-Infos in der Detailansicht aufgeklappt?
+let pokemonInfo = null;    // data/pokemon-info.json, wird beim ersten Öffnen geladen
+let pokemonInfoLaedt = null;
 let rankingTimer = null;
 let ansicht = { kachel: 'mittel', fehlend: 'silhouette', sortierung: 'nummer', preise: 'an' };
 let gruppen = [];          // aktuelle Abschnitte im Pokédex: { titel, liste }
@@ -442,7 +445,22 @@ function zeichneDetail(dex) {
   titel.id = 'detail-name';
   const bild = artwork(dex, 400);
   bild.loading = 'eager';
-  kopf.append(el('span', 'nr', nr(dex)), bild, titel, typBox);
+  const infoHinweis = el('span', 'info-hinweis');
+  infoHinweis.innerHTML = `${infoOffen ? 'Infos ausblenden' : 'Infos anzeigen'} <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+  kopf.append(el('span', 'nr', nr(dex)), bild, titel, typBox, infoHinweis);
+  // ein Tipp auf den Kopf klappt die Pokémon-Infos auf
+  kopf.dataset.infoUmschalten = '';
+  kopf.setAttribute('role', 'button');
+  kopf.tabIndex = 0;
+  kopf.setAttribute('aria-expanded', infoOffen);
+  kopf.setAttribute('aria-controls', 'pokemon-info');
+  kopf.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); umschalteInfo(); }
+  });
+  const infoBox = el('section', 'pokemon-info');
+  infoBox.id = 'pokemon-info';
+  infoBox.hidden = !infoOffen;
+  if (infoOffen) zeichneInfo(dex, infoBox);
 
   const fang = el('button', 'detail-fang' + (gefangen ? ' an' : ''));
   fang.type = 'button';
@@ -466,8 +484,145 @@ function zeichneDetail(dex) {
       abschnitt.append(el('p', 'preis-hinweis', 'Kartenwerte: Cardmarket-Trendpreis über TCGdex, meist alle Sprachen zusammen.'));
     }
   }
-  box.replaceChildren(kopf, fang, abschnitt);
+  box.replaceChildren(kopf, infoBox, fang, abschnitt);
   beobachtePreise(box);
+}
+
+// ---------- Pokémon-Infos (Größe, Gewicht, Basiswerte, Fähigkeiten, Entwicklung) ----------
+const WERTE_NAMEN = ['KP', 'Angriff', 'Verteidigung', 'Sp.-Angriff', 'Sp.-Verteidigung', 'Initiative'];
+
+function ladePokemonInfo() {
+  if (pokemonInfo) return Promise.resolve(pokemonInfo);
+  if (!pokemonInfoLaedt) {
+    pokemonInfoLaedt = fetch('data/pokemon-info.json')
+      .then((a) => { if (!a.ok) throw new Error(a.status); return a.json(); })
+      .then((d) => { pokemonInfo = d; return d; })
+      .catch((e) => { pokemonInfoLaedt = null; throw e; });
+  }
+  return pokemonInfoLaedt;
+}
+
+function umschalteInfo() {
+  if (detailDex === null) return;
+  infoOffen = !infoOffen;
+  const box = document.getElementById('pokemon-info');
+  const kopf = document.querySelector('.detail-kopf');
+  box.hidden = !infoOffen;
+  kopf.setAttribute('aria-expanded', infoOffen);
+  kopf.querySelector('.info-hinweis').firstChild.textContent = infoOffen ? 'Infos ausblenden ' : 'Infos anzeigen ';
+  if (infoOffen && !box.dataset.fertig) zeichneInfo(detailDex, box);
+}
+
+const zahl = (n, stellen = 1) => n.toLocaleString('de-DE', { maximumFractionDigits: stellen });
+
+async function zeichneInfo(dex, box) {
+  box.replaceChildren(el('p', 'info-laedt', 'Infos werden geladen …'));
+  let alle;
+  try { alle = await ladePokemonInfo(); } catch (e) {
+    box.replaceChildren(el('p', 'info-laedt', 'Die Infos konnten nicht geladen werden. Prüfe deine Internetverbindung und tippe erneut auf den Kopf.'));
+    return;
+  }
+  if (detailDex !== dex) return;
+  const [kategorie, groesse, gewicht_, werte, faehigkeiten, text, weiblich, fangrate, eiGruppen, kette, , textEnglisch] = alle[dex - 1];
+  const teile = [];
+
+  // Kategorie und Pokédex-Eintrag
+  const eintrag = el('div', 'info-eintrag');
+  if (kategorie) eintrag.append(el('span', 'info-kategorie', kategorie));
+  if (text) eintrag.append(el('p', 'info-text', text));
+  if (textEnglisch && text) eintrag.append(el('small', 'info-hinweis-klein', 'Für dieses Pokémon gibt es noch keinen deutschen Pokédex-Eintrag – hier der englische.'));
+  teile.push(eintrag);
+
+  // Steckbrief
+  const region = REGIONEN.findIndex(([, von, bis]) => dex >= von && dex <= bis);
+  const geschlecht = el('span');
+  if (weiblich < 0) geschlecht.textContent = 'geschlechtslos';
+  else geschlecht.append(
+    el('span', 'info-m', `♂ ${zahl((8 - weiblich) / 8 * 100)} %`),
+    document.createTextNode('  '),
+    el('span', 'info-w', `♀ ${zahl(weiblich / 8 * 100)} %`),
+  );
+  const fakten = el('dl', 'info-fakten');
+  [
+    ['Größe', `${zahl(groesse / 10)} m`],
+    ['Gewicht', `${zahl(gewicht_ / 10)} kg`],
+    ['Geschlecht', geschlecht],
+    ['Fangrate', `${fangrate} von 255`],
+    ['Ei-Gruppen', eiGruppen.join(', ') || '–'],
+    ['Herkunft', `${REGIONEN[region][0]}, Generation ${region + 1}`],
+  ].forEach(([titel, wert]) => {
+    const d = el('div');
+    const dd = el('dd');
+    if (typeof wert === 'string') dd.textContent = wert; else dd.append(wert);
+    d.append(el('dt', null, titel), dd);
+    fakten.append(d);
+  });
+  teile.push(fakten);
+
+  // Fähigkeiten
+  if (faehigkeiten.length) {
+    const f = el('div', 'info-block');
+    f.append(el('h4', null, 'Fähigkeiten'));
+    const chips = el('div', 'info-chips');
+    faehigkeiten.forEach(([name_, versteckt]) => {
+      const c = el('span', 'info-chip' + (versteckt ? ' versteckt' : ''), name_);
+      if (versteckt) c.append(el('small', null, 'versteckt'));
+      chips.append(c);
+    });
+    f.append(chips);
+    teile.push(f);
+  }
+
+  // Basiswerte
+  const w = el('div', 'info-block');
+  const summe = werte.reduce((a, b) => a + b, 0);
+  const kopfZeile = el('h4', null, 'Basiswerte');
+  kopfZeile.append(el('span', 'info-summe', `Gesamt ${summe}`));
+  w.append(kopfZeile);
+  const tabelle = el('div', 'info-werte');
+  werte.forEach((wert, i) => {
+    const zeile = el('div', 'info-wert');
+    const balken = el('span', 'info-balken');
+    const fuellung = el('i');
+    fuellung.style.width = Math.min(100, (wert / 180) * 100) + '%';
+    fuellung.className = wert < 60 ? 'niedrig' : wert < 90 ? 'mittel' : wert < 120 ? 'hoch' : 'sehr-hoch';
+    balken.append(fuellung);
+    zeile.append(el('span', 'info-wert-name', WERTE_NAMEN[i]), el('b', null, wert), balken);
+    tabelle.append(zeile);
+  });
+  w.append(tabelle);
+  teile.push(w);
+
+  // Entwicklungsreihe: alle Pokémon derselben Reihe, nach Stufe geordnet
+  const reihe = [];
+  alle.forEach((d, i) => { if (d[9] === kette) reihe.push(i + 1); });
+  if (reihe.length > 1) {
+    const stufe = (d) => { let n = 0; let v = alle[d - 1][10]; while (v && n < 5) { n++; v = alle[v - 1][10]; } return n; };
+    const stufen = [];
+    reihe.forEach((d) => { const st = stufe(d); (stufen[st] = stufen[st] || []).push(d); });
+    const evo = el('div', 'info-block');
+    evo.append(el('h4', null, 'Entwicklung'));
+    const leiste = el('div', 'info-evo');
+    stufen.filter(Boolean).forEach((gruppe, i) => {
+      if (i) leiste.append(el('span', 'info-evo-pfeil', '›'));
+      const spalte = el('div', 'info-evo-stufe' + (gruppe.length > 3 ? ' viele' : ''));
+      gruppe.forEach((d) => {
+        const b = el('button', `info-evo-pokemon t-${typen(d)[0]}` + (haken.has(d) ? ' an' : '') + (d === dex ? ' aktuell' : ''));
+        b.type = 'button';
+        b.dataset.evo = d;
+        b.setAttribute('aria-label', `${name(d)} anzeigen`);
+        b.append(artwork(d, 120), el('span', null, name(d)));
+        spalte.append(b);
+      });
+      leiste.append(spalte);
+    });
+    evo.append(leiste, el('small', 'info-hinweis-klein', 'Farbig = schon gefangen. Antippen zeigt das Pokémon.'));
+    teile.push(evo);
+  }
+
+  teile.push(el('p', 'info-fussnote', 'Das Wesen (z. B. „Robust“) hat im Spiel jedes Pokémon einzeln – deshalb gibt es dafür keinen festen Wert pro Art. Daten: PokeAPI.'));
+  box.replaceChildren(...teile);
+  box.dataset.fertig = '1';
 }
 
 function kartenElement(k) {
@@ -1730,6 +1885,9 @@ function start() {
     const einstellung = e.target.closest('[data-einstellung] button');
     if (einstellung) { aendereEinstellung(einstellung.parentElement.dataset.einstellung, einstellung.dataset.wert); return; }
     if (e.target.closest('[data-schliessen]')) { schliesseDetail(); return; }
+    if (e.target.closest('[data-info-umschalten]')) { umschalteInfo(); return; }
+    const evo = e.target.closest('[data-evo]');
+    if (evo) { oeffneDetail(+evo.dataset.evo); document.querySelector('.detail-blatt').scrollTop = 0; return; }
     const setKnopf = e.target.closest('[data-toggle-set]');
     if (setKnopf) {
       offenesSet = offenesSet === setKnopf.dataset.toggleSet ? null : setKnopf.dataset.toggleSet;
