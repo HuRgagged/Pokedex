@@ -3,7 +3,7 @@
 
 const ANZAHL_POKEMON = POKEMON_NAMEN.length; // 1025
 const SPEICHER_HAKEN = 'natdex:haken';       // gespeicherte Häkchen (nie umbenennen!)
-const SPEICHER_DATEN = 'natdex:daten-v2';    // Cache der Kartendaten
+const SPEICHER_DATEN = 'natdex:daten-v3';    // Cache der Kartendaten
 const DATEN_MAX_ALTER_TAGE = 7;
 const AKTUELL_MONATE = 24;
 const API = 'https://api.tcgdex.net/v2/graphql';
@@ -157,6 +157,11 @@ async function holeDatenVonApi() {
   }
   const karten = [];
   for (const k of json.data.cards) {
+    // Neue Sets haben in TCGdex oft noch keine dexId → aus dem deutschen Namen ableiten
+    if ((!k.dexId || !k.dexId.length) && k.category === 'Pokémon') {
+      const dex = dexAusName(k.name);
+      if (dex) k.dexId = [dex];
+    }
     if (!k.dexId || !k.dexId.length) continue;
     const setId = k.set.id;
     if (!sets[setId]) {
@@ -168,6 +173,28 @@ async function holeDatenVonApi() {
     karten.push([setId, k.localId, k.name, k.rarity || 'Keine', k.dexId, k.image ? 1 : 0]);
   }
   return { geladen: Date.now(), sets, karten };
+}
+
+// Kartenname → Pokédex-Nummer, z. B. „Mega-Rayquaza-ex“ → 384, „Hitze-Rotom-ex“ → 479
+let dexNachName = null;
+function dexAusName(kartenName) {
+  if (!dexNachName) {
+    dexNachName = new Map();
+    POKEMON_NAMEN.forEach((n, i) => dexNachName.set(n.toLowerCase(), i + 1));
+  }
+  let n = kartenName.toLowerCase().trim()
+    .replace(/[\s-]+(ex|gx|v|vmax|vstar|v-union|lv\.\s*x|δ)$/u, '')  // Endungen
+    .replace(/^mega[\s-]+/, '');                                      // Mega-
+  if (dexNachName.has(n)) return dexNachName.get(n);
+  // Formen/Besitzer wie „Hitze-Rotom“, „Alola-Vulpix“, „Team Rockets Mewtu“: letzter passender Teil
+  const teile = n.split(/[\s-]+/);
+  for (let i = 1; i < teile.length; i++) {
+    const rest = teile.slice(i).join('-');
+    if (dexNachName.has(rest)) return dexNachName.get(rest);
+    const restLeer = teile.slice(i).join(' ');
+    if (dexNachName.has(restLeer)) return dexNachName.get(restLeer);
+  }
+  return null;
 }
 
 function ladeDatenAusCache() {
@@ -194,7 +221,7 @@ function baueIndex() {
 
 async function ladeDaten(erzwingen = false) {
   const hinweis = document.getElementById('lade-hinweis');
-  try { localStorage.removeItem('natdex:daten-v1'); } catch (e) {} // alter Cache
+  try { localStorage.removeItem('natdex:daten-v1'); localStorage.removeItem('natdex:daten-v2'); } catch (e) {} // alte Caches
   const cache = ladeDatenAusCache();
   const frisch = cache && Date.now() - cache.geladen < DATEN_MAX_ALTER_TAGE * 864e5;
   if (cache && !erzwingen) {
