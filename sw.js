@@ -3,7 +3,7 @@
 // - Bilder, Schriften, QR-Bibliothek: einmal geladen, danach aus dem Speicher
 // Kartendaten und Häkchen speichert die App selbst im Browser (localStorage).
 
-const SEITE = 'natdex-seite-v1';
+const SEITE = 'natdex-seite-v2';
 const DATEIEN = 'natdex-dateien-v1';
 const MAX_DATEIEN = 2500; // so viele Bilder höchstens aufheben
 
@@ -16,7 +16,7 @@ const FREMDE_DATEIEN = ['wsrv.nl', 'assets.tcgdex.net', 'raw.githubusercontent.c
   'fonts.googleapis.com', 'fonts.gstatic.com', 'cdnjs.cloudflare.com'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(SEITE).then((c) => c.addAll(GRUNDGERUEST)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(SEITE).then((c) => c.addAll(GRUNDGERUEST.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -43,7 +43,8 @@ self.addEventListener('fetch', (e) => {
 async function netzZuerst(anfrage) {
   const speicher = await caches.open(SEITE);
   try {
-    const antwort = await fetch(anfrage);
+    // no-cache: immer bei GitHub nachfragen, nicht die bis zu 10 Min. alte Browser-Kopie nehmen
+    const antwort = await fetch(anfrage.url, { cache: 'no-cache' });
     if (antwort.ok) speicher.put(anfrage, antwort.clone());
     return antwort;
   } catch (fehler) {
